@@ -2,3 +2,5 @@ COCOval17/
 sample/
 test/
 train/
+*.h5
+*.pt
