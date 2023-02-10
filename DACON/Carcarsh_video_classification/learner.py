@@ -18,14 +18,14 @@ def seed_everything(seed):
 
 
 
-def train(model, optimizer, train_loader, val_loader, scheduler, device, CFG):
+def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
     model.to(device)
     criterion = FocalLoss().to(device)
     
     best_val_score = 0
     best_model = None
     
-    for epoch in range(1, CFG['EPOCHS']+1):
+    for epoch in range(1, args.epochs+1):
         model.train()
         train_loss = []
         for videos, labels in tqdm(iter(train_loader)):

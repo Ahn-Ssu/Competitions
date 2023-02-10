@@ -20,10 +20,10 @@ def data_split(df, seed):
     return train, val
 
 class CustomDataset(Dataset):
-    def __init__(self, video_path_list, label_list, CFG):
+    def __init__(self, video_path_list, label_list, args):
         self.video_path_list = video_path_list
         self.label_list = label_list
-        self.CFG = CFG
+        self.args = args
         
     def __getitem__(self, index):
         frames = self.get_video(self.video_path_list[index])
@@ -41,9 +41,9 @@ class CustomDataset(Dataset):
         frames = []
         path =  f'/root/Competitions/DACON/Carcarsh_video_classification/data/{path[2:]}'
         cap = cv2.VideoCapture(path)
-        for _ in range(self.CFG['VIDEO_LENGTH']):
+        for _ in range(self.args.video_length):
             _, img = cap.read()
-            img = cv2.resize(img, (self.CFG['IMG_SIZE'], self.CFG['IMG_SIZE']))
+            img = cv2.resize(img, (self.args.img_size, self.args.img_size))
             img = img / 255.
             frames.append(img)
         return torch.FloatTensor(np.array(frames)).permute(3, 0, 1, 2)
