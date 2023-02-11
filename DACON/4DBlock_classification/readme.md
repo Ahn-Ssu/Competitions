@@ -17,7 +17,7 @@ background synthesis:
 
 ## what I learned 
 - [efficientNet architecture](https://arxiv.org/abs/1905.11946): baseline으로 제공된 pretrained model, 대회 시작전 까지 mobileNet, MBConv, Squeeze & Excitation에 대해서 몰랐었음
-- [Alumentation](https://albumentations.ai): image data augmentation library. torchVision transforms을 사용하느 것보다 속도가 우수하게 빠른 증강 라이브러리. 
+- [Albumentation](https://albumentations.ai): image data augmentation library. torchVision transforms을 사용하느 것보다 속도가 우수하게 빠른 증강 라이브러리. 
 - Mosaic augmentation: 여러장의 이미지를 한 장으로 만드는 증강 기법. 
 - [Cosine annealing with warm restart](https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.html): scheduler 효력을 무시하던 편이었는데, 구글링을 하면서 공부하던 중 발견했음. 첨부된 URL은 PyTorch에서 지원하는 버전으로 ware restart는 구현되어 있지 않다. 그래서 [이 깃허브](https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup)에 구현된 버전을 사용했는데 **정상적인 학습 진행이 되지 않아서 끝내 적용에는 실패함.**
 - Multi GPU learning libaray: 종류는 많은데, 우선 [이 글](https://medium.com/daangn/pytorch-multi-gpu-학습-제대로-하기-27270617936b)을 읽고 개념을 잡았다. [NVIDIA apex](https://github.com/NVIDIA/apex) library로 첫 시도를 해보려고 한다. 
