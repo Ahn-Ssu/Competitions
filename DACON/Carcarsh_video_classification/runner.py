@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
 import loader 
-import model
+import networks
 import trainer
 
 
@@ -78,6 +78,8 @@ else:
 
 num_classes = 3 if target in ['ego','weather'] else 2
 
+stages = []
+
 for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     print(f'Current stage of Fold: {stage+1}, target label: {target}')
     print(f'Current stage of Fold: {stage+1}, target label: {target}')
@@ -95,12 +97,15 @@ for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     ##################################################
 
     # model = model.efficientNet3D()
-    model = model.BaseModel(num_classes)
+    model = networks.BaseModel(num_classes)
     model.eval()
     optimizer = trainer.Apollo(params = model.parameters(), lr = args.init_lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2,threshold_mode='abs',min_lr=1e-8, verbose=True)
 
-    infer_model = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
+    infer_model, logger = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
+    stages.append(logger)
+
+print(stages)
 
 
 

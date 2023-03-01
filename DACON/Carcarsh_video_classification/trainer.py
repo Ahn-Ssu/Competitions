@@ -24,6 +24,8 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
     
     best_val_score = 0
     best_model = None
+
+    logger = []
     
     for epoch in range(1, args.epochs+1):
         model.train()
@@ -45,6 +47,7 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
         _val_loss, _val_score, _val_acc = validation(model, criterion, val_loader, device)
         _train_loss = np.mean(train_loss)
         print(f'Epoch [{epoch}], Train Loss : [{_train_loss:.5f}] Val Loss : [{_val_loss:.5f}] Val F1 : [{_val_score:.5f}] Val Acc : [{_val_acc:.5f}]')
+        logger.append([epoch, _train_loss, _val_loss, _val_score, _val_acc])
         
         if scheduler is not None:
             scheduler.step(_val_score)
@@ -53,7 +56,7 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
             best_val_score = _val_score
             best_model = model
     
-    return best_model
+    return best_model, logger
 
 def validation(model, criterion, val_loader, device):
     model.eval()
