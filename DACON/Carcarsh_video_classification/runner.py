@@ -105,7 +105,9 @@ for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     infer_model, logger = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
     stages.append(logger)
 
-print(stages)
+
+for log in stages:
+    print(log)
 
 
 

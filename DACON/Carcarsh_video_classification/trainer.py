@@ -46,8 +46,10 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
                     
         _val_loss, _val_score, _val_acc = validation(model, criterion, val_loader, device)
         _train_loss = np.mean(train_loss)
-        print(f'Epoch [{epoch}], Train Loss : [{_train_loss:.5f}] Val Loss : [{_val_loss:.5f}] Val F1 : [{_val_score:.5f}] Val Acc : [{_val_acc:.5f}]')
-        logger.append([epoch, _train_loss, _val_loss, _val_score, _val_acc])
+        
+        log = f'Epoch [{epoch}], Train Loss : [{_train_loss:.5f}] Val Loss : [{_val_loss:.5f}] Val F1 : [{_val_score:.5f}] Val Acc : [{_val_acc:.5f}]'
+        print(log)
+        logger.append(log)
         
         if scheduler is not None:
             scheduler.step(_val_score)
