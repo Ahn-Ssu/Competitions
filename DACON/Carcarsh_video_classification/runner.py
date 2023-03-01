@@ -1,9 +1,13 @@
+import os, csv
 import torch
 import pandas as pd
 
 from easydict import EasyDict
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import RepeatedStratifiedKFold
+from datetime import datetime, timezone, timedelta
+from pytorchvideo.transforms.transforms_factory import create_video_transform
+
 
 import loader 
 import networks
@@ -16,7 +20,7 @@ args.video_length = 50  # 10프레임 * 5초
 args.img_size     = 128
 
 args.batch_size   = 4
-args.epochs       = 10
+args.epochs       = 2
 args.init_lr      = 3e-4
 
 args.seed = 41
@@ -24,6 +28,13 @@ args.seed = 41
 print('efficient, def')
 trainer.seed_everything(args.seed)
 device = torch.device('cuda:1') if torch.cuda.is_available() else torch.device('cpu')
+
+savePath = '/root/Competitions/DACON/Carcarsh_video_classification/log'
+try:
+    if not os.path.exists(savePath):
+        os.makedirs(savePath)
+except OSError:
+    print("Error: Cannot create the directory {}".format(savePath))
 
 train_df = pd.read_csv('/root/Competitions/DACON/Carcarsh_video_classification/data/train.csv')
 
@@ -61,14 +72,10 @@ enc_df = pd.concat([train_df, encoded], axis=1)
 
 ###########################################################
 ###########################################################
-
-
-
-from sklearn.model_selection import RepeatedStratifiedKFold
-
 stf_kfold = RepeatedStratifiedKFold(n_splits=5, random_state=args.seed)
-target = new_features[3] # To do: ego[1], weather[2], timing[3]
+target = new_features[1] # To do: ego[1], weather[2], timing[3]
 
+num_classes = 3 if target in ['ego','weather'] else 2
 
 if target in ['weather','timing']:
     df = enc_df[enc_df[target] > 0]
@@ -76,9 +83,17 @@ if target in ['weather','timing']:
 else:
     df = enc_df
 
-num_classes = 3 if target in ['ego','weather'] else 2
 
-stages = []
+KST = timezone(timedelta(hours=9))
+time_record = datetime.now(KST)
+today = str(time_record)[:10]
+
+file_label = f'{savePath}/{today}_LOG__[{target}]_PLAIN_.csv'
+
+if not os.path.exists(file_label):
+      with open(file_label, mode='w') as f:
+        myWriter = csv.writer(f)
+        myWriter.writerow(['Fold','epoch','trainLoss','valLoss','val_F1','val_Acc'])
 
 for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     print(f'Current stage of Fold: {stage+1}, target label: {target}')
@@ -87,14 +102,16 @@ for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     train = df.iloc[train_idx]
     val   = df.iloc[val_idx]
 
+    #### maybe we need an augmentation method here ###
+    ##################################################
+
+
     train_dataset = loader.CustomDataset(train['video_path'].values, train[target].values, args=args)
     train_loader = DataLoader(train_dataset, batch_size = args.batch_size, shuffle=True, num_workers=4)
 
     val_dataset = loader.CustomDataset(val['video_path'].values, val[target].values, args=args)
     val_loader = DataLoader(val_dataset, batch_size = args.batch_size, shuffle=False, num_workers=4)
 
-    #### maybe we need an augmentation method here ###
-    ##################################################
 
     # model = model.efficientNet3D()
     model = networks.BaseModel(num_classes)
@@ -102,13 +119,12 @@ for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     optimizer = trainer.Apollo(params = model.parameters(), lr = args.init_lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2,threshold_mode='abs',min_lr=1e-8, verbose=True)
 
-    infer_model, logger = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
-    stages.append(logger)
+    infer_model, logs = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
 
-
-for log in stages:
-    print(log)
-
+    with open(file_label, mode='a') as f:
+        myWriter = csv.writer(f)
+        for log in logs:
+            myWriter.writerow([stage+1] + log)
 
 
 

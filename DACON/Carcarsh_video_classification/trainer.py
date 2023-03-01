@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from sklearn.metrics import f1_score, accuracy_score
-from model import FocalLoss
+from networks import FocalLoss
 
 
 def seed_everything(seed):
@@ -25,7 +25,7 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
     best_val_score = 0
     best_model = None
 
-    logger = []
+    logs = []
     
     for epoch in range(1, args.epochs+1):
         model.train()
@@ -47,9 +47,9 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
         _val_loss, _val_score, _val_acc = validation(model, criterion, val_loader, device)
         _train_loss = np.mean(train_loss)
         
-        log = f'Epoch [{epoch}], Train Loss : [{_train_loss:.5f}] Val Loss : [{_val_loss:.5f}] Val F1 : [{_val_score:.5f}] Val Acc : [{_val_acc:.5f}]'
-        print(log)
-        logger.append(log)
+        
+        print(f'Epoch [{epoch}], Train Loss : [{_train_loss:.5f}] Val Loss : [{_val_loss:.5f}] Val F1 : [{_val_score:.5f}] Val Acc : [{_val_acc:.5f}]')
+        logs.append([epoch, round(_train_loss, 4), round(_val_loss, 4),round(_val_score, 4)])
         
         if scheduler is not None:
             scheduler.step(_val_score)
@@ -58,8 +58,7 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
             best_val_score = _val_score
             best_model = model
     
-    return best_model, logger
-
+    return best_model, logs
 def validation(model, criterion, val_loader, device):
     model.eval()
     val_loss = []
