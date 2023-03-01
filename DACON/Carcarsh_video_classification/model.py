@@ -7,7 +7,7 @@ class BaseModel(nn.Module):
     def __init__(self, num_classes=13):
         super(BaseModel, self).__init__()
         self.feature_extract = models.video.r3d_18(weights=models.video.R3D_18_Weights.DEFAULT)
-        self.drop = nn.Dropout(p=0.2)
+        self.drop = nn.Dropout(p=0.1)
         self.act  = nn.SiLU()
         self.classifier = nn.Linear(400, num_classes)
         
