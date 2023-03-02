@@ -49,7 +49,7 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
         
         
         print(f'Epoch [{epoch}], Train Loss : [{_train_loss:.5f}] Val Loss : [{_val_loss:.5f}] Val F1 : [{_val_score:.5f}] Val Acc : [{_val_acc:.5f}]')
-        logs.append([epoch, round(_train_loss, 4), round(_val_loss, 4),round(_val_score, 4)])
+        logs.append([epoch, round(_train_loss, 4), round(_val_loss, 4),round(_val_score, 4), round(_val_acc, 4)])
         
         if scheduler is not None:
             scheduler.step(_val_score)
