@@ -20,7 +20,7 @@ args.video_length = 50  # 10프레임 * 5초
 args.img_size     = 128
 
 args.batch_size   = 4
-args.epochs       = 2
+args.epochs       = 20
 args.init_lr      = 3e-4
 
 args.seed = 41
@@ -66,14 +66,13 @@ import numpy as np
 encoded = pd.DataFrame(np.array(encoded))
 new_features = ['crash','ego','weather','timing']
 encoded.columns = new_features
-
 enc_df = pd.concat([train_df, encoded], axis=1)
 
 
 ###########################################################
 ###########################################################
 stf_kfold = RepeatedStratifiedKFold(n_splits=5, random_state=args.seed)
-target = new_features[1] # To do: ego[1], weather[2], timing[3]
+target = new_features[2] # To do: ego[1], weather[2], timing[3]
 
 num_classes = 3 if target in ['ego','weather'] else 2
 
@@ -88,12 +87,20 @@ KST = timezone(timedelta(hours=9))
 time_record = datetime.now(KST)
 today = str(time_record)[:10]
 
-file_label = f'{savePath}/{today}_LOG__[{target}]_PLAIN_.csv'
+model_name = 'baseLINE'
+file_label = f'{savePath}/{today}_LOG__[{target}]_PLAIN_model:{model_name}.csv'
 
 if not os.path.exists(file_label):
       with open(file_label, mode='w') as f:
         myWriter = csv.writer(f)
         myWriter.writerow(['Fold','epoch','trainLoss','valLoss','val_F1','val_Acc'])
+
+archive_path = f'/root/Competitions/DACON/Carcarsh_video_classification/model/{target}/'
+try:
+    if not os.path.exists(archive_path):
+        os.makedirs(archive_path)
+except OSError:
+    print("Error: Cannot create the directory {}".format(archive_path))
 
 for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     print(f'Current stage of Fold: {stage+1}, target label: {target}')
@@ -107,24 +114,28 @@ for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
 
 
     train_dataset = loader.CustomDataset(train['video_path'].values, train[target].values, args=args)
-    train_loader = DataLoader(train_dataset, batch_size = args.batch_size, shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size = args.batch_size, shuffle=True, num_workers=2)
 
     val_dataset = loader.CustomDataset(val['video_path'].values, val[target].values, args=args)
-    val_loader = DataLoader(val_dataset, batch_size = args.batch_size, shuffle=False, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size = args.batch_size, shuffle=False, num_workers=2)
 
 
-    # model = model.efficientNet3D()
     model = networks.BaseModel(num_classes)
+    model.name = model_name
     model.eval()
     optimizer = trainer.Apollo(params = model.parameters(), lr = args.init_lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2,threshold_mode='abs',min_lr=1e-8, verbose=True)
 
-    infer_model, logs = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
+    best_model, logs, best_info = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
 
     with open(file_label, mode='a') as f:
         myWriter = csv.writer(f)
         for log in logs:
             myWriter.writerow([stage+1] + log)
+
+    torch.save(best_model.state_dict(), f'{archive_path}{best_model.name}_Fold[{stage}]{best_info}.pth')
+    
+
 
 
 

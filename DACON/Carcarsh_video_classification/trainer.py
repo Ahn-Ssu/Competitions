@@ -26,6 +26,7 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
     best_model = None
 
     logs = []
+    best_info = ''
     
     for epoch in range(1, args.epochs+1):
         model.train()
@@ -57,8 +58,9 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
         if best_val_score < _val_score:
             best_val_score = _val_score
             best_model = model
+            best_info = f'INFO_epoch{epoch}, tarinLoss{round(_train_loss,3)}, valLoss{round(_val_loss,3)}, valF1{round(_val_score,3)}, valAcc{round(_val_acc,3)}'
     
-    return best_model, logs
+    return best_model, logs, best_info
 def validation(model, criterion, val_loader, device):
     model.eval()
     val_loss = []
