@@ -3,10 +3,13 @@ import torch.nn as nn
 from torchvision.ops import StochasticDepth
 import torchvision.models as models
 
+
 class BaseModel(nn.Module):
     def __init__(self, num_classes=13):
         super(BaseModel, self).__init__()
-        self.feature_extract = models.video.r3d_18(weights=models.video.R3D_18_Weights.DEFAULT)
+        # self.feature_extract = models.video.r3d_18(weights=models.video.R3D_18_Weights.DEFAULT)
+        self.feature_extract = models.video.r2plus1d_18(weights=models.video.R2Plus1D_18_Weights.DEFAULT)
+        # self.feature_extract = models.video.r3d_18(weights=models.video.R3D_18_Weights.DEFAULT)
         self.drop = nn.Dropout(p=0.1)
         self.act  = nn.SiLU()
         self.classifier = nn.Linear(400, num_classes)
@@ -20,170 +23,145 @@ class BaseModel(nn.Module):
         x = self.classifier(x)
         return x
 
-
-class efficientNet3D(nn.Module):
-    def __init__(self, num_classes=13) -> None:
-        super(efficientNet3D, self).__init__()
-
-        self.conv1 = nn.Sequential(
-            nn.Conv3d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
+class givenModel(nn.Module):
+    def __init__(self, num_classes=13):
+        super(givenModel, self).__init__()
+        self.feature_extract = nn.Sequential(
+            nn.Conv3d(3, 8, (1, 3, 3)),
+            nn.ReLU(),
+            nn.BatchNorm3d(8),
+            nn.MaxPool3d(2),
+            nn.Conv3d(8, 32, (1, 2, 2)),
+            nn.ReLU(),
             nn.BatchNorm3d(32),
+            nn.MaxPool3d(2),
+            nn.Conv3d(32, 64, (1, 2, 2)),
+            nn.ReLU(),
+            nn.BatchNorm3d(64),
+            nn.MaxPool3d(2),
+            nn.Conv3d(64, 128, (1, 2, 2)),
+            nn.ReLU(),
+            nn.BatchNorm3d(128),
+            nn.MaxPool3d((3, 7, 7)),
+        )
+        self.classifier = nn.Linear(1024, num_classes)
+        
+    def forward(self, x):
+        batch_size = x.size(0)
+        x = self.feature_extract(x)
+        x = x.view(batch_size, -1)
+        x = self.classifier(x)
+        return x
+    
+
+class SqueezeExcitation3D(nn.Module):
+    def __init__(self, in_dim, reduction_ratio=4) -> None:
+        super().__init__()
+
+        self.squeeze = nn.AdaptiveAvgPool3d(1)
+
+        self.excitation = nn.Sequential(
+            nn.Conv3d(in_channels=in_dim, out_channels=in_dim//reduction_ratio, kernel_size=1, stride=1),
+            nn.SiLU(),
+            nn.Dropout(p=0.1),
+            nn.Conv3d(in_channels=in_dim//reduction_ratio, out_channels=in_dim, kernel_size=1, stride=1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+
+        se_out = self.squeeze(x)
+        se_out = self.excitation(se_out)
+        se_out = se_out * x
+
+        return se_out
+    
+class FusedMBConv3D(nn.Module):
+    def __init__(self, in_dim, out_dim, expansion_ratio=4, squeeze_ratio=4, kernel_size=3, stride=1) -> None:
+        super(FusedMBConv3D, self).__init__()
+
+        self.use_residual = in_dim == out_dim and stride == 1
+        hidden_dim = int(in_dim * expansion_ratio)
+        padding = kernel_size // 2 
+
+        self.conv = nn.Sequential(
+            nn.Conv3d(in_channels=in_dim, out_channels=hidden_dim, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
+            nn.BatchNorm3d(hidden_dim),
+            nn.SiLU(),
+            nn.Dropout(p=0.1)
+        )
+
+        self.se = SqueezeExcitation3D(hidden_dim, reduction_ratio=squeeze_ratio)
+
+        self.projectiion = nn.Sequential(
+            nn.Conv3d(in_channels=hidden_dim, out_channels=out_dim, kernel_size=1, stride=1, bias=False),
+            nn.BatchNorm3d(out_dim),
+            nn.Dropout(p=0.1)
+        )
+
+    def forward(self, x):
+
+        h = self.conv(x)
+        h = self.se(h)
+        h = self.projectiion(h)
+
+        if self.use_residual:
+            h = h + x
+        
+        return h
+
+class R3DcpSE(nn.Module):
+    def __init__(self, num_classes=13) -> None:
+        super(R3DcpSE, self).__init__()
+
+        self.stem = nn.Sequential(
+            nn.Conv3d(3, 64, kernel_size=(3, 7, 7), stride=(1, 2, 2), padding=(1, 3, 3), bias=False),
+            nn.BatchNorm3d(64),
             nn.SiLU()
         )
 
+        self.conv1 = nn.Sequential(
+            *([FusedMBConv3D(64, 64, 4, 4, 3, 2)]
+              +[FusedMBConv3D(64, 64, 4, 4, 3, 1) for _ in range(3)])
+        )
+
         self.conv2 = nn.Sequential(
-            MBConv(in_dim=32, hidden_dim=32, out_dim=16, kernel_size=3, stride=1, padding=1, scale=False),
-            StochasticDepth(p=0.0, mode='row')
+            *([FusedMBConv3D(64, 128, 4, 4, 3, 2)]
+              +[FusedMBConv3D(128, 128, 4, 4, 3, 1) for _ in range(4)])
         )
 
         self.conv3 = nn.Sequential(
-            MBConv(in_dim=16, hidden_dim=96, out_dim=24, kernel_size=3, stride=2, padding=1, scale=True),
-            StochasticDepth(p=0.0125, mode='row'),
-            MBConv(in_dim=24, hidden_dim=144, out_dim=24, kernel_size=3, stride=1, padding=1, scale=True),
-            StochasticDepth(p=0.025, mode='row')
+            *([FusedMBConv3D(128, 256, 4, 4, 3, 2)]
+              +[FusedMBConv3D(256, 256, 4, 4, 3, 1) for _ in range(5)])
         )
 
         self.conv4 = nn.Sequential(
-            MBConv(in_dim=24, hidden_dim=144, out_dim=40, kernel_size=5, stride=2, padding=2, scale=True),
-            StochasticDepth(p=0.0375, mode='row'),
-            MBConv(in_dim=40, hidden_dim=240, out_dim=40, kernel_size=5, stride=1, padding=2, scale=True),
-            StochasticDepth(p=0.05, mode='row'),
+            *([FusedMBConv3D(256, 512, 4, 4, 3, 2)]
+              +[FusedMBConv3D(512, 512, 4, 4, 3, 1) for _ in range(5)])
         )
 
-        self.conv5 = nn.Sequential(
-            MBConv(in_dim=40, hidden_dim=240, out_dim=80, kernel_size=3, stride=2, padding=1, scale=True),
-            StochasticDepth(p=0.0625, mode='row'),
-            MBConv(in_dim=80, hidden_dim=480, out_dim=80, kernel_size=3, stride=1, padding=1, scale=True),
-            StochasticDepth(p=0.075, mode='row'),
-            MBConv(in_dim=80, hidden_dim=480, out_dim=80, kernel_size=3, stride=1, padding=1, scale=True),
-            StochasticDepth(p=0.0875, mode='row'),
-        )
+        self.avgpool = nn.AdaptiveAvgPool3d((1,1,1))
+        self.dropout = nn.Dropout(p=0.1)
+        self.fc = nn.Conv3d(in_channels=512, out_channels=num_classes)
 
-        self.conv6 = nn.Sequential(
-            MBConv(in_dim=80, hidden_dim=480, out_dim=112, kernel_size=5, stride=1, padding=2, scale=True),
-            StochasticDepth(p=0.1, mode='row'),
-            MBConv(in_dim=112, hidden_dim=672, out_dim=112, kernel_size=5, stride=1, padding=2, scale=True),
-            StochasticDepth(p=0.1125, mode='row'),
-            MBConv(in_dim=112, hidden_dim=672, out_dim=112, kernel_size=5, stride=1, padding=2, scale=True),
-            StochasticDepth(p=0.125, mode='row'),
-        )
-
-        self.conv7 = nn.Sequential(
-            MBConv(in_dim=112, hidden_dim=672, out_dim=192, kernel_size=5, stride=2, padding=2, scale=True),
-            StochasticDepth(p=0.1375, mode='row'),
-            MBConv(in_dim=192, hidden_dim=1152, out_dim=192, kernel_size=5, stride=1, padding=2, scale=True),
-            StochasticDepth(p=0.15, mode='row'),
-            MBConv(in_dim=192, hidden_dim=1152, out_dim=192, kernel_size=5, stride=1, padding=2, scale=True),
-            StochasticDepth(p=0.1625, mode='row'),
-            MBConv(in_dim=192, hidden_dim=1152, out_dim=192, kernel_size=5, stride=1, padding=2, scale=True),
-            StochasticDepth(p=0.175, mode='row'),
-        )
-
-        self.conv8 = nn.Sequential(
-            MBConv(in_dim=192, hidden_dim=1152, out_dim=320, kernel_size=3, stride=1, padding=1, scale=False),
-            StochasticDepth(p=0.1875, mode='row')
-        )
-
-        self.conv9 = nn.Sequential(
-            nn.Conv3d(320, 1280, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm3d(1280),
-            nn.SiLU()
-        )
-
-        self.pool = nn.AdaptiveAvgPool3d(output_size=1)
-        self.drop = nn.Dropout(p=0.2)
-        self.clf  = nn.Linear(1280, out_features=num_classes)
-        
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
-        x = self.conv6(x)
-        x = self.conv7(x)
-        x = self.conv8(x)
-        x = self.conv9(x)
-
-        p = self.pool(x)
-        # print(p.shape)
-        # p = Rearrange(p, 'b ')
-        # p = Rearrange(p, ' c t w h -> (c t w h)')
-        p = p.view(x.shape[0], -1)
-        # [4, 1280, 1, 1, 1]
-
-        out = self.clf(p)
-
-        return out
-
-        
-
-class SqueezeExcitation(nn.Module):
-    def __init__(self, in_dim, sqz_dim) -> None:
-        super(SqueezeExcitation, self).__init__()
-
-        self.pool = nn.AdaptiveAvgPool3d(output_size=1)
-        self.fc1 = nn.Conv3d(in_dim, sqz_dim, kernel_size=1, stride=1)
-        self.fc2 = nn.Conv3d(sqz_dim, in_dim, kernel_size=1, stride=1)
-        self.act = nn.SiLU()
-        self.scale_act = nn.Sigmoid()
-
-    
     def forward(self, x):
 
-        squeezed = self.pool(x)
+        h = self.stem(x)
 
-        e = self.fc1(squeezed)
-        e = self.act(e)
-        e = self.fc2(e)
-        e = self.scale_act(e)
-
-        out = x * e
-        
-        return out
-
-class MBConv(nn.Module):
-    def __init__(self, in_dim, hidden_dim, out_dim, kernel_size, stride, padding, scale=True) -> None:
-        super(MBConv, self).__init__()
-
-        self.scale = scale
-
-        if self.scale:
-            self.bottleneck = nn.Sequential(
-                nn.Conv3d(in_dim, hidden_dim, kernel_size=1, stride=1, bias=False),
-                nn.BatchNorm3d(hidden_dim),
-                nn.SiLU()
-            )
-
-            self.conv1 = nn.Sequential(
-                nn.Conv3d(hidden_dim, hidden_dim, kernel_size=kernel_size, stride=stride, padding=padding, groups=hidden_dim, bias=False),
-                nn.BatchNorm3d(hidden_dim),
-                nn.SiLU()
-            )
-        else:
-            self.conv1 = nn.Sequential(
-                nn.Conv3d(in_dim, hidden_dim, kernel_size=kernel_size, stride=stride, padding=padding, groups=in_dim, bias=False),
-                nn.BatchNorm3d(hidden_dim),
-                nn.SiLU()
-            )
-        
-        self.SqueezeExcitation = SqueezeExcitation(hidden_dim, 8 if hidden_dim == 32 else hidden_dim//24)
-
-        self.conv2 = nn.Sequential(
-            nn.Conv3d(hidden_dim, out_dim, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm3d(out_dim)
-        )
-    
-    def forward(self, x):
-
-        if self.scale:
-            x = self.bottleneck(x)
-            
-        h = self.conv1(x)
-        h = self.SqueezeExcitation(h)
+        h = self.conv1(h)
         h = self.conv2(h)
+        h = self.conv3(h)
+        h = self.conv4(h)
 
-        return h
+        p = self.avgpool(h)
+        p = self.dropout(p)
+
+        out = self.fc(p)
+        out = out.view(out.size(0), -1)
+
+        return out
+        
+
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=0.25, gamma=2, logits=False, reduce=True):
