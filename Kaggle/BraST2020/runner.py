@@ -36,8 +36,8 @@ if __name__ == '__main__':
     args = EasyDict()
 
     args.batch_size = 2
-    args.epochs = 20
-    args.init_lr = 0.1
+    args.epochs = 40
+    args.init_lr = 0.001
 
     args.seed = 41
 
@@ -80,28 +80,27 @@ if __name__ == '__main__':
             ]
         )
     train_data = MRI_dataset('./data/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData', 'nii', train_transform)
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=4, persistent_workers=True, pin_memory=True)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=4, persistent_workers=True)
 
     val_data = MRI_dataset('./data/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData', 'nii', transform=val_transform)
-    val_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False, num_workers=4, persistent_workers=True, pin_memory=True)
+    val_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False, num_workers=4, persistent_workers=True)
 
     from monai.networks.nets import UNet
     from monai.networks.layers import Norm
-    model = UNet(
-            spatial_dims=3,
-            in_channels=4,
-            out_channels=3,
-            channels=(16, 32, 64, 128, 256),
-            strides=(2, 2, 2, 2),
-            num_res_units=2,
-            norm=Norm.BATCH,
-        )
+    model = SegResNet(
+    blocks_down=[1, 2, 2, 4],
+    blocks_up=[1, 1, 1],
+    init_filters=16,
+    in_channels=4,
+    out_channels=3,
+    dropout_prob=0.2,
+)
 
     pl_runner = LightningRunner(model, args)
 
     trainer = Trainer(
         max_epochs=100,
-        devices=[1],
+        devices=[1,2],
         accelerator='gpu',
         precision=16,
         strategy=DDPStrategy(find_unused_parameters=False)

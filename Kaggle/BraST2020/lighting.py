@@ -20,7 +20,7 @@ class LightningRunner(pl.LightningModule):
         super().__init__()
 
         self.model = network
-        self.loss  = DiceFocalLoss(smooth_nr=1e-5)
+        self.loss  = DiceFocalLoss(sigmoid=True)
         self.args = args
         self.post_trans = Compose([Activations(sigmoid=True), AsDiscrete(threshold=0.5)])
         
@@ -39,7 +39,7 @@ class LightningRunner(pl.LightningModule):
         loss = self.loss(y_hat, y)
         # logs metrics for each training_step,
         # and the average across the epoch, to the progress bar and logger
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
 
         return loss
     
@@ -51,14 +51,13 @@ class LightningRunner(pl.LightningModule):
         return metrics
 
     def validation_step_end(self, batch_parts):
-        print(batch_parts)
         losses = batch_parts['loss']
         dice_score = batch_parts['dice']
         return torch.mean(dice_score)
 
     def validation_epoch_end(self, outputs) -> None:
         dice_scores= torch.mean(torch.stack(outputs))
-        self.log_dict({'val_dice':dice_scores}, sync_dist=True)
+        self.log_dict({'val_dice':dice_scores}, prog_bar=True, sync_dist=True)
         return 
 
     def _shared_eval_step(self, batch, batch_idx):
