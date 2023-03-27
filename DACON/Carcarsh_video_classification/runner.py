@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from sklearn.model_selection import RepeatedStratifiedKFold
 from datetime import datetime, timezone, timedelta
 from pytorchvideo.transforms.transforms_factory import create_video_transform
+from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
 
 
 import loader 
@@ -17,17 +18,17 @@ import trainer
 args = EasyDict()
 
 args.video_length = 50  # 10프레임 * 5초
-args.img_size     = 128
+args.img_size     = 196
 
 args.batch_size   = 4
-args.epochs       = 20
-args.init_lr      = 3e-4
+args.epochs       = 40
+args.init_lr      = 5e-5
 
 args.seed = 41
 
-print('efficient, def')
+
 trainer.seed_everything(args.seed)
-device = torch.device('cuda:1') if torch.cuda.is_available() else torch.device('cpu')
+device = torch.device('cuda:3') if torch.cuda.is_available() else torch.device('cpu')
 
 savePath = '/root/Competitions/DACON/Carcarsh_video_classification/log'
 try:
@@ -37,58 +38,24 @@ except OSError:
     print("Error: Cannot create the directory {}".format(savePath))
 
 train_df = pd.read_csv('/root/Competitions/DACON/Carcarsh_video_classification/data/train.csv')
+enc_df = loader.label_encoding(train_df)
 
-########## 1. label processing -> label encoding ##########
-###########################################################
-enc_lookup = {
-        -1:[-1,-1,-1,-1],
-        0:[0,0,0,0],
-        1:[1,1,1,1],
-        2:[1,1,1,2],
-        3:[1,1,2,1],
-        4:[1,1,2,2],
-        5:[1,1,3,1],
-        6:[1,1,3,2],
-        7:[1,2,1,1],
-        8:[1,2,1,2],
-        9:[1,2,2,1],
-        10:[1,2,2,2],
-        11:[1,2,3,1],
-        12:[1,2,3,2]
-    }
-
-labels = train_df.label.to_numpy()
-encoded = []
-
-for label in labels:
-    encoded.append(enc_lookup[label])
-import numpy as np
-encoded = pd.DataFrame(np.array(encoded))
-new_features = ['crash','ego','weather','timing']
-encoded.columns = new_features
-enc_df = pd.concat([train_df, encoded], axis=1)
-
-
-###########################################################
-###########################################################
 stf_kfold = RepeatedStratifiedKFold(n_splits=5, random_state=args.seed)
-target = new_features[2] # To do: ego[1], weather[2], timing[3]
 
-num_classes = 3 if target in ['ego','weather'] else 2
+# To do: ego[1], weather[2], timing[3]
+target = 'ego' 
+target = 'weather'
+target = 'timing'
 
-if target in ['weather','timing']:
-    df = enc_df[enc_df[target] > 0]
-    df[target] = df[target] - 1
-else:
-    df = enc_df
+df, num_classes = loader.label_shift(enc_df, target)
 
 
 KST = timezone(timedelta(hours=9))
 time_record = datetime.now(KST)
 today = str(time_record)[:10]
 
-model_name = 'baseLINE'
-file_label = f'{savePath}/{today}_LOG__[{target}]_PLAIN_model:{model_name}.csv'
+model_name = 'i3d_r50'
+file_label = f'{savePath}/{today}_LOG__[{target}]_ReduceLROnPlateau, model-[{model_name}], lr-[{args.init_lr}], img-[{args.img_size}].csv'
 
 if not os.path.exists(file_label):
       with open(file_label, mode='w') as f:
@@ -125,6 +92,7 @@ for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
     model.eval()
     optimizer = trainer.Apollo(params = model.parameters(), lr = args.init_lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2,threshold_mode='abs',min_lr=1e-8, verbose=True)
+    # scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=15, cycle_mult=1, max_lr=3e-4, min_lr=1e-5, warmup_steps=3, gamma=0.8)
 
     best_model, logs, best_info = trainer.train(model, optimizer, train_loader, val_loader, scheduler, device, args)
 
@@ -133,7 +101,7 @@ for stage, (train_idx, val_idx) in enumerate(stf_kfold.split(df, df[target])):
         for log in logs:
             myWriter.writerow([stage+1] + log)
 
-    torch.save(best_model.state_dict(), f'{archive_path}{best_model.name}_Fold[{stage}]{best_info}.pth')
+    torch.save(best_model.state_dict(), f'{archive_path}{best_model.name}--{today}[{target}]_Fold[{stage}]{best_info}.pth')
     
 
 

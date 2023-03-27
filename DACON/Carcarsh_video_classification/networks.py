@@ -4,12 +4,21 @@ from torchvision.ops import StochasticDepth
 import torchvision.models as models
 
 
+# https://dl.fbaipublicfiles.com/pytorchvideo/model_zoo/kinetics/I3D_8x8_R50.pyth
+# https://dl.fbaipublicfiles.com/pytorchvideo/model_zoo/kinetics/R2PLUS1D_16x4_R50.pyth
+# https://dl.fbaipublicfiles.com/pytorchvideo/model_zoo/kinetics/SLOW_8x8_R50.pyth
 class BaseModel(nn.Module):
-    def __init__(self, num_classes=13):
+    def __init__(self, num_classes=13, args=None):
         super(BaseModel, self).__init__()
-        # self.feature_extract = models.video.r3d_18(weights=models.video.R3D_18_Weights.DEFAULT)
-        self.feature_extract = models.video.r2plus1d_18(weights=models.video.R2Plus1D_18_Weights.DEFAULT)
-        # self.feature_extract = models.video.r3d_18(weights=models.video.R3D_18_Weights.DEFAULT)
+
+
+        if args.model_name == 'r3d_18':
+            self.feature_extract = models.video.r3d_18(weights=models.video.R3D_18_Weights.DEFAULT)
+        elif args.model_name == 'r2plus1d_18':
+            self.feature_extract = models.video.r2plus1d_18(weights=models.video.R2Plus1D_18_Weights.DEFAULT)
+        else:
+            self.feature_extract = torch.hub.load('facebookresearch/pytorchvideo', 'i3d_r50', pretrained=True)
+                
         self.drop = nn.Dropout(p=0.1)
         self.act  = nn.SiLU()
         self.classifier = nn.Linear(400, num_classes)
@@ -45,6 +54,7 @@ class givenModel(nn.Module):
             nn.MaxPool3d((3, 7, 7)),
         )
         self.classifier = nn.Linear(1024, num_classes)
+        
         
     def forward(self, x):
         batch_size = x.size(0)
@@ -182,3 +192,6 @@ class FocalLoss(nn.Module):
             return torch.mean(F_loss)
         else:
             return F_loss
+        
+
+

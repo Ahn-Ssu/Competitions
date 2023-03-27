@@ -54,6 +54,7 @@ def train(model, optimizer, train_loader, val_loader, scheduler, device, args):
         
         if scheduler is not None:
             scheduler.step(_val_score)
+            # print(optimizer.param_groups[0]["lr"])
             
         if best_val_score < _val_score:
             best_val_score = _val_score

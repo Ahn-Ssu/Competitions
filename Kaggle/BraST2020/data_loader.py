@@ -8,6 +8,9 @@ import albumentations as A
 from torch.utils.data import Dataset
 from monai.transforms import LoadImaged, MapTransform
 
+import pytorch_lightning as pl
+
+
 class MRI_dataset(Dataset):
     def __init__(self, train_DIR_PATH=None, ext=None, transform=None, is_fold=False) -> None:
         super().__init__()
@@ -47,6 +50,7 @@ class MRI_dataset(Dataset):
 
         data_d = LoadImaged(keys=["image", "label"])(data_pathd)
 
+
         if self.transform:
             data_d = self.transform(data_d)
 
@@ -72,29 +76,7 @@ class MRI_dataset(Dataset):
 # nanmean_3t = np.nanmean(np.nanmean(np.nanmean(nii_data, axis=0),axis=0), axis=0)
 # print(nanmean_3t)
 import torch
-class ConvertToMultiChannelBasedOnBratsClassesd(MapTransform):
-    """
-    Convert labels to multi channels based on brats classes:
-    label 1 is the peritumoral edema
-    label 2 is the GD-enhancing tumor
-    label 3 is the necrotic and non-enhancing tumor core
-    The possible classes are TC (Tumor core), WT (Whole tumor)
-    and ET (Enhancing tumor).
 
-    """
-
-    def __call__(self, data):
-        d = dict(data)
-        for key in self.keys:
-            result = []
-            # merge label 2 and label 3 to construct TC
-            result.append(torch.logical_or(d[key] == 2, d[key] == 3))
-            # merge labels 1, 2 and 3 to construct WT
-            result.append(torch.logical_or(torch.logical_or(d[key] == 2, d[key] == 3), d[key] == 1))
-            # label 2 is ET
-            result.append(d[key] == 2)
-            d[key] = torch.stack(result, axis=0).float()
-        return d
 
 if __name__ == "__main__":
     import sys
@@ -116,6 +98,7 @@ if __name__ == "__main__":
             Spacingd,
             EnsureTyped,
             EnsureChannelFirstd,
+            ConvertToMultiChannelBasedOnBratsClassesd
         )
     
     train_transform = Compose(
@@ -144,7 +127,7 @@ if __name__ == "__main__":
     print(f'{sys.argv[0]} TEST '*3)
     print()
 
-    path = './data/train'
+    path = './data/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData'
     print(f'\ttest path : [{path}]')
 
     myData = MRI_dataset(path, 'nii', train_transform)
@@ -155,9 +138,8 @@ if __name__ == "__main__":
     print(f'\treturned scans : [{scans.keys()}]')
     print(f'\treturned scan shape:')
     print(f'\t\timage: [{scans["image"].shape}]')
-    print(f'\t\tlabel: [{scans["label"].shape}]')
+    print(f'\t\tlabel: [{scans["label"].shape}] ** each cheannel represents TC, WT, ET')
 
-    
     print()
     print(f'{sys.argv[0]} TEST DONE! '*3)
     print(f'{sys.argv[0]} TEST DONE! '*3)

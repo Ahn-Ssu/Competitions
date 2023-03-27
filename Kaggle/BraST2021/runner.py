@@ -60,7 +60,7 @@ if __name__ == '__main__':
                     pixdim=(1.0, 1.0, 1.0),
                     mode=("bilinear", "nearest"),
                 ),
-                RandSpatialCropd(keys=["image", "label"], roi_size=[224, 224, 144], random_size=False),
+                RandSpatialCropd(keys=["image", "label"], roi_size=[128, 128, 128], random_size=False),
                 RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
                 RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
                 RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
@@ -121,13 +121,13 @@ if __name__ == '__main__':
     #     dropout=0.1,
     # )
 
-    model = nets.BasicUNet(
-        spatial_dims=3,
-        in_channels=4,
-        out_channels=3,
-        # act=("MEMSWISH",{}),
-        # dropout=0.05
-    )
+    # model = nets.BasicUNet(
+    #     spatial_dims=3,
+    #     in_channels=4,
+    #     out_channels=3,
+    #     act=("MEMSWISH",{}),
+    #     # dropout=0.05
+    # )
 
     # model = nets.UNet(
     #     spatial_dims=3,
@@ -138,8 +138,21 @@ if __name__ == '__main__':
     #     num_res_units=3
     # )
 
-    # model.__class__.__name__ = "BasicUNet-SWISH"
-    print(model)
+    model=nets.SwinUNETR(
+        img_size=(128,128,128),
+        in_channels=4,
+        out_channels=3
+    )
+
+    # model = nets.UNETR(
+    #     in_channels=4,
+    #     out_channels=3,
+    #     img_size=(224, 224, 144),
+        
+    # )
+
+    # model.__class__.__name__ = "BasicUNet-MEMSWISH"
+    # print(model)
     # exit()
     
     pl_runner = LightningRunner(model, args)
@@ -163,7 +176,7 @@ if __name__ == '__main__':
         devices=[2,3],
         accelerator='gpu',
         precision=16,
-        strategy='ddp',
+        strategy=DDPStrategy(find_unused_parameters=False),
         callbacks=[lr_monitor, checkpoint_callback],
         check_val_every_n_epoch=10,
         # logger=logger

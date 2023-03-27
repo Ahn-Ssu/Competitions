@@ -27,18 +27,18 @@ class KFold_pl_DataModule(pl.LightningDataModule):
         self.val_data = None
 
     def setup(self, stage: str) -> None:
-        if not self.data_train and not self.data_val:
-            # full_dataset = MRI_dataset(train_DIR_PATH=self.hparams.data_dir,
-            #                            ext=self.hparams.ext,)
-
+        if not self.train_data and not self.val_data:
             train_data_paths = [os.path.join(self.hparams.data_dir, repo) for repo in os.listdir(self.hparams.data_dir) if os.path.isdir(self.hparams.data_dir)]
 
             kf = KFold(n_splits=self.hparams.num_split,
                        shuffle=True,
                        random_state=self.hparams.split_seed)
             all_splits = [k for k in kf.split(train_data_paths)]
-            train_list, val_list = all_splits[self.hparams.k_idx]
-            train_list, val_list = train_list.tolist(), val_list.tolist()
+            train_idx, val_idx = all_splits[self.hparams.k_idx]
+            train_idx, val_idx = train_idx.tolist(), val_idx.tolist()
+
+            train_list = [train_data_paths[i] for i in train_idx]
+            val_list = [train_data_paths[i] for i in val_idx]
 
             self.train_data = MRI_dataset(DIR_PATH=train_list, ext=self.hparams.ext, transform=self.hparams.train_transform)
             self.val_data = MRI_dataset(DIR_PATH=val_list, ext=self.hparams.ext, transform=self.hparams.val_transform)
@@ -71,12 +71,6 @@ class MRI_dataset(Dataset):
         self.train_SCAN_PATH = DIR_PATH
         self.transform = transform
 
-        # if is_fold:
-        #     folds = [os.path.join(DIR_PATH, fold) for fold in os.listdir(DIR_PATH) if os.path.isdir(os.path.join(DIR_PATH, fold))]
-        #     for fold in folds:
-        #         self.train_SCAN_PATH += [os.path.join(fold, sample_path) for sample_path in os.listdir(fold)]
-        # else:
-
     def __getitem__(self, index):
         return self.get_SCANS(self.train_SCAN_PATH[index])
 
@@ -86,6 +80,8 @@ class MRI_dataset(Dataset):
     def get_SCANS(self, path):
 
         img = path.split('/')[-1]
+         
+        
 
         seg   = os.path.join(path,f'{img}_seg.{self.ext}')
         flair = os.path.join(path,f'{img}_flair.{self.ext}')
@@ -93,13 +89,13 @@ class MRI_dataset(Dataset):
         t1ce  = os.path.join(path,f'{img}_t1ce.{self.ext}')
         t2    = os.path.join(path,f'{img}_t2.{self.ext}')
 
+
         data_pathd = {
             'image': (t1, t1ce, t2, flair),
             'label': seg
         }
 
         data_d = LoadImaged(keys=["image", "label"])(data_pathd)
-
 
         if self.transform:
             data_d = self.transform(data_d)
