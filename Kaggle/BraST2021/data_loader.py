@@ -8,6 +8,9 @@ import albumentations as A
 from torch.utils.data import Dataset
 from monai.transforms import LoadImaged, MapTransform
 
+import pytorch_lightning as pl
+
+
 class MRI_dataset(Dataset):
     def __init__(self, train_DIR_PATH=None, ext=None, transform=None, is_fold=False) -> None:
         super().__init__()

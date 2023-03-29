@@ -1,5 +1,14 @@
 import os
 
+# def replace_module(modules:nn.Module, target, source):
+#         for name, child in modules.named_children():
+#             if isinstance(child, target):
+#                 modules._modules[name] = source()
+#             # elif isinstance(child, nn.Sequential):
+#             else: 
+#                 replace_module(child, target, source)
+
+
 if __name__ == '__main__':
 
     from easydict import EasyDict
@@ -9,6 +18,8 @@ if __name__ == '__main__':
     from pytorch_lightning.strategies.ddp import DDPStrategy
     from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, LearningRateFinder
     from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
+
+    import torch.nn as nn
     
 
     from monai.transforms import (
@@ -27,27 +38,38 @@ if __name__ == '__main__':
                         RandScaleIntensityd,
                         RandShiftIntensityd,
                         RandSpatialCropd,
+                        CropForegroundd,
+                        RandAffined,
+                        Resized,
                         Spacingd,
                         EnsureTyped,
                         EnsureChannelFirstd,
                     )
 
     from monai.networks import nets
+    from monai.networks.blocks import MemoryEfficientSwish as MEMSWISH
     from data_loader import MRI_dataset
     from lighting import LightningRunner
-    from models.model import DeepSEED
+    from kfold_pl_data import KFold_pl_DataModule
 
 
     args = EasyDict()
 
     args.batch_size = 2
-    args.epochs = 400
-    args.init_lr = 0.001
+    args.epochs = 300
+    args.init_lr = 4e-3
+    args.weight_decay = 0.05
 
     args.seed = 41
 
     seed_everything(args.seed)
 
+    # 240, 240, 155
+    # Swin에서 사용했던 aug
+    # 128 cube random cropped 
+    # axis mirror flip p=0.5
+    # per channel intensity shift (-0.1, 0.1)
+    # random scale intensity (0.9, 1.1)
     train_transform = Compose(
             [
                 # load 4 Nifti images and stack them together
@@ -60,18 +82,19 @@ if __name__ == '__main__':
                     pixdim=(1.0, 1.0, 1.0),
                     mode=("bilinear", "nearest"),
                 ),
-                RandSpatialCropd(keys=["image", "label"], roi_size=[128, 128, 128], random_size=False),
+                # the following from this is augmentation
+                # CropForegroundd(keys=["image","label"], source_key="image", k_divisible=[240, 240, 155]),
+                # RandSpatialCropd(keys=["image", "label"], roi_size=[128,128,128], random_size=False),
+                NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
                 RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
                 RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
                 RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-                NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
                 RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
                 RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
             ]
         )
     val_transform = Compose(
             [
-                LoadImaged(keys=["image", "label"]),
                 EnsureChannelFirstd(keys="image"),
                 EnsureTyped(keys=["image", "label"]),
                 ConvertToMultiChannelBasedOnBratsClassesd(keys="label"),
@@ -84,106 +107,70 @@ if __name__ == '__main__':
                 NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             ]
         )
-    train_data = MRI_dataset('./data/train_originWhole', 'nii.gz', train_transform)
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=4, persistent_workers=True)
-
-    val_data = MRI_dataset('/root/Competitions/Kaggle/BraST2020/data/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData', 'nii.gz', transform=val_transform)
-    val_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False, num_workers=4, persistent_workers=True)
-
-    # model = DeepSEED(
-    #     4,
-    #     [8, 16, 32, 64],
-    #     out_dim=3,
-    #     dropout_p=0.1
-    # )
-    # model = SegResNet(
-    #     blocks_down=[1, 2, 2, 4],
-    #     blocks_up=[1, 1, 1],
-    #     init_filters=16,
-    #     in_channels=4,
-    #     out_channels=3,
-    #     dropout_prob=0.2,
-    # )
-
-    # model = VNet(
-    #     spatial_dims=3,
-    #     in_channels=4,
-    #     out_channels=3,
-    #     dropout_prob=0.1
-    # )
-
-    # model = nets.BasicUNetPlusPlus(
-    #     spatial_dims=3,
-    #     in_channels=4,
-    #     out_channels=3,
-    #     # deep_supervision=True,
-    #     features=[8, 16, 32, 64, 128, 8],
-    #     dropout=0.1,
-    # )
-
-    # model = nets.BasicUNet(
-    #     spatial_dims=3,
-    #     in_channels=4,
-    #     out_channels=3,
-    #     act=("MEMSWISH",{}),
-    #     # dropout=0.05
-    # )
-
-    # model = nets.UNet(
-    #     spatial_dims=3,
-    #     in_channels=4,
-    #     out_channels=3,
-    #     channels=(32, 32, 64, 128, 256),
-    #     strides=(2, 2, 2, 2),
-    #     num_res_units=3
-    # )
-
-    model=nets.SwinUNETR(
-        img_size=(128,128,128),
-        in_channels=4,
-        out_channels=3
-    )
-
-    # model = nets.UNETR(
-    #     in_channels=4,
-    #     out_channels=3,
-    #     img_size=(224, 224, 144),
-        
-    # )
-
-    # model.__class__.__name__ = "BasicUNet-MEMSWISH"
-    # print(model)
-    # exit()
     
-    pl_runner = LightningRunner(model, args)
+    num_split = 5
+    for k_idx in range(num_split):
 
-    lr_monitor = LearningRateMonitor(logging_interval='step')
-    # lr_finder = LearningRateFinder(num_training_steps=8000)
-    checkpoint_callback = ModelCheckpoint(
-        monitor='avg_dice',
-        filename=f'{model.__class__.__name__}'+'-{epoch:03d}-{train_loss:.4f}-{avg_dice:.4f}',
-        mode='max'
-    )
+        pl_data = KFold_pl_DataModule(data_dir='/root/Competitions/Kaggle/BraST2021/data/BraTS2021_Training_Data',
+            ext='nii.gz',
+            k_idx=k_idx,
+            num_split=num_split,
+            split_seed=args.seed,
+            batch_size=args.batch_size,
+            num_workers=4,
+            persistent_workers=False,
+            pin_memory=False,
+            train_transform=train_transform,
+            val_transform=val_transform
+            )
 
-    # logger = TensorBoardLogger(
-    #     save_dir='.',
-    #     version='dummy'
-    #     # version=f'{model.__class__.__name__}'
-    #     )
-
-    trainer = Trainer(
-        max_epochs=args.epochs,
-        devices=[2,3],
-        accelerator='gpu',
-        precision=16,
-        strategy=DDPStrategy(find_unused_parameters=False),
-        callbacks=[lr_monitor, checkpoint_callback],
-        check_val_every_n_epoch=10,
-        # logger=logger
+        model = nets.BasicUNet(
+            spatial_dims=3,
+            in_channels=4,
+            out_channels=3,
+            # features=
+            # features=(64,128,256,512,1024,64),
+            # act=("ReLU",{'inplace':True}),
+            # act=("MEMSWISH", {})
+            # dropout=0.05
         )
 
-    trainer.fit(
-        model= pl_runner,
-        train_dataloaders=train_loader,
-        val_dataloaders=val_loader
-    )
+        # model = nets.SwinUNETR(
+        #     img_size=[128,128,128],
+        #     in_channels=4,
+        #     out_channels=3
+        # )
+
+        print(model)
+        # exit()
+
+        pl_runner = LightningRunner(model, args)
+
+        lr_monitor = LearningRateMonitor(logging_interval='step')
+        lr_finder = LearningRateFinder(num_training_steps=8000)
+        checkpoint_callback = ModelCheckpoint(
+            monitor='avg_dice',
+            filename=f'{model.__class__.__name__}'+'-{epoch:03d}-{train_loss:.4f}-{avg_dice:.4f}',
+            mode='max'
+        )
+
+        logger = TensorBoardLogger(
+            save_dir='.',
+            version=f'[{k_idx+1}Fold]_BasicUNet, ReLU, lr 3e-4, whole img(240x240x155) no foreC, lr find'
+            )
+    
+        trainer = Trainer(
+            max_epochs=args.epochs,
+            devices=4,
+            accelerator='gpu',
+            precision=16,
+            strategy=DDPStrategy(find_unused_parameters=False),
+            callbacks=[lr_monitor, checkpoint_callback, lr_finder],
+            check_val_every_n_epoch=10,
+            logger=logger
+            )
+
+        trainer.fit(
+            model= pl_runner,
+            datamodule=pl_data
+        )

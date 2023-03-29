@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.optim
+import torch.optim as optim
 
 import pytorch_lightning as pl
 
@@ -14,10 +14,12 @@ from monai.transforms import (
                         Compose,
                         AsDiscrete,
                     )
+from monai.inferers import sliding_window_inference
 
 from models.apollo import Apollo
 from models.cosine_anealing_warmup import CosineAnnealingWarmupRestarts
 import numpy as np
+from functools import partial
 
 class AverageMeter(object):
     def __init__(self):
@@ -35,28 +37,46 @@ class AverageMeter(object):
         self.count += n
         self.avg = np.where(self.count > 0, self.sum / self.count, self.sum)
 
+
+
 class LightningRunner(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
 
         self.model = network
-        self.loss  = DiceFocalLoss(sigmoid=True)
+        # self.loss  = DiceFocalLoss(sigmoid=True)
+        # self.loss  = nn.CrossEntropyLoss()
+        self.loss = DiceLoss(sigmoid=True)
         self.args = args
         self.post_trans = Compose([Activations(sigmoid=True), AsDiscrete(argmax=False,threshold=0.5)])
         self.dice_acc = DiceMetric(include_background=True, reduction=MetricReduction.MEAN_BATCH, get_not_nans=True)
         self.confusion = ConfusionMatrixMetric(include_background=True,metric_name=['sensitivity', 'specificity','precision'], get_not_nans=True, reduction=MetricReduction.MEAN_BATCH)
         self.hausdorff = HausdorffDistanceMetric(include_background=True, reduction=MetricReduction.MEAN_BATCH, get_not_nans=True, percentile=95.0)
         self.run_acc = AverageMeter()
+
+        self.inferer =  partial(
+            sliding_window_inference,
+            roi_size=[128, 128, 128],
+            sw_batch_size=2,
+            predictor=self.model,
+            overlap=0.5,
+        )
         
+    
+
 
     def configure_optimizers(self):
-        optimizer = Apollo(params=self.parameters(), lr=self.args.init_lr, beta=0.9, eps=1e-4, rebound='constant', warmup=10, init_lr=None, weight_decay=0, weight_decay_type=None)
-        lr_scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=100, max_lr=0.001, min_lr=1e-6, warmup_steps=20, gamma=0.9)
-        return [optimizer], [lr_scheduler]
+        # optimizer = Apollo(params=self.parameters(), lr=self.args.init_lr, beta=0.9, eps=1e-4, rebound='constant', warmup=10, init_lr=None, weight_decay=0, weight_decay_type=None)
+        # optimizer = optim.SGD(params=self.parameters(), lr=self.args.init_lr, weight_decay=self.args.weight_decay)
+        optimizer = optim.AdamW(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=0.05)
+        # lr_scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=100, max_lr=self.args.init_lr, min_lr=self.args.init_lr*0.001, warmup_steps=20, gamma=0.8)
+        # return [optimizer], [lr_scheduler]
+        return optimizer
     
     
     def training_step(self, batch, batch_idx):
         x, y = batch['image'], batch['label']
+        # print(f'in training x.y shape: {x.shape}, {y.shape}')
         y_hat = self.model(x)
 
         if isinstance(y_hat, list):
@@ -69,6 +89,7 @@ class LightningRunner(pl.LightningModule):
         return loss
     
     def training_step_end(self, step_output):
+        ret = torch.mean(step_output)
         return torch.mean(step_output)
 
     def validation_step(self, batch, batch_idx):
@@ -87,7 +108,7 @@ class LightningRunner(pl.LightningModule):
         dice_tc  = np.mean(np.stack([output['dice_tc'] for output in outputs]))
         dice_wt  = np.mean(np.stack([output['dice_wt'] for output in outputs]))
         dice_et  = np.mean(np.stack([output['dice_et'] for output in outputs]))
-        self.log_dict({'avg_dice':avg_dice, 'dice_tc':dice_tc, 'dice_wt':dice_wt, 'dice_et':dice_et}, prog_bar=True, sync_dist=True, logger=True)
+        self.log_dict({'avg_dice':avg_dice, 'dice_tc':dice_tc, 'dice_wt':dice_wt ,'dice_et':dice_et}, prog_bar=True, sync_dist=True, logger=True)
         return 
 
     def _shared_eval_step(self, batch, batch_idx):
@@ -99,6 +120,10 @@ class LightningRunner(pl.LightningModule):
 
         x, y = batch['image'], batch['label']
         y_hat = self.model(x)
+        # y_hat = sliding_window_inference(x, (128,128,128), sw_batch_size=2, predictor=self.model , overlap=0.5)
+        # y_hat = self.inferer(x)
+
+        
 
         if isinstance(y_hat, list): # for UNet++
             y_hat = y_hat[0]
