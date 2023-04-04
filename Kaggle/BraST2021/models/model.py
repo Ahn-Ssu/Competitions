@@ -3,153 +3,202 @@ import torch
 import torch.nn.functional as F
 
 from monai.networks.blocks import MemoryEfficientSwish
+from typing import Union, List, Tuple
 
+class ConvBlock(nn.Module):
+    def __init__(self, in_dim, out_dim, conv_class, dropout_class, drop_p=0.0) -> None:
+        super(ConvBlock, self).__init__()
 
-class DeepSEED(nn.Module):
-    def __init__(self, in_dim, hidden_dims, out_dim, dropout_p=0.1) -> None:
-        super(DeepSEED, self).__init__()
+        self.conv_layer = conv_class(in_channels=in_dim, out_channels=out_dim, kernel_size=3, stride=1, padding=1, bias=False)
+        self.norm = nn.InstanceNorm3d(out_dim)
+        self.act = nn.LeakyReLU()
+        
+        if drop_p > 0:
+            self.drop = dropout_class(p=drop_p)
+        else:
+            self.drop = None
 
-        self.encoder = Encoder(input_dim=in_dim, hidden_dim=hidden_dims, dropout_p=dropout_p)
-        self.decoder = Decoder(hidden_dim=hidden_dims, out_dim=out_dim, dropout_p=dropout_p)
+        self._init_layer_weights()
+        
+    def _init_layer_weights(self):
+        for module in self.modules():
+            if hasattr(module, 'weights'):
+                # nn.init.xavier_uniform_(module.weight,)
+                module.weight.data.normal_(mean=0.0, std=0.5)
 
+    def forward(self, x):
+
+        x = self.conv_layer(x)
+        x = self.norm(x)
+        
+        if self.drop:
+            x = self.drop(x)
+        
+        x = self.act(x)
+
+        return x
+    
+class UNet_encoder(nn.Module):
+    def __init__(self, in_dim, hidden_dims:Union[List, Tuple], spatial_dim, drop_p=0.0) -> None:
+        super(UNet_encoder, self).__init__()
+
+        if spatial_dim == 3:
+            conv_class = nn.Conv3d
+            dropout_class = nn.Dropout3d
+            pooling_class = nn.MaxPool3d
+        else:
+            conv_class = nn.Conv2d
+            dropout_class = nn.Dropout2d
+            pooling_class = nn.MaxPool2d
+
+        self.pool = pooling_class(kernel_size=2, stride=2)
+        self.layer1 = nn.Sequential(
+            ConvBlock(in_dim=in_dim        , out_dim=hidden_dims[0], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.layer2 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[1], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[1], out_dim=hidden_dims[1], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.layer3 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[1], out_dim=hidden_dims[2], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[2], out_dim=hidden_dims[2], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.layer4 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[2], out_dim=hidden_dims[3], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[3], out_dim=hidden_dims[3], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.layer5 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[3], out_dim=hidden_dims[4], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[4], out_dim=hidden_dims[4], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.layer6 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[4], out_dim=hidden_dims[5], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[5], out_dim=hidden_dims[5], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        
+
+    def forward(self, x):
+
+        stage_outputs = {}
+
+        x = self.layer1(x)
+        stage_outputs['stage1'] = x
+
+        x = self.pool(x)
+        x = self.layer2(x)
+        stage_outputs['stage2'] = x
+
+        x = self.pool(x)
+        x = self.layer3(x)
+        stage_outputs['stage3'] = x
+
+        x = self.pool(x)
+        x = self.layer4(x)
+        stage_outputs['stage4'] = x
+
+        x = self.pool(x)
+        x = self.layer5(x)
+        stage_outputs['stage5'] = x
+
+        x = self.pool(x)
+        x = self.layer6(x)
+
+        return x, stage_outputs
+    
+class UNet_decoder(nn.Module):
+    def __init__(self, out_dim, hidden_dims:Union[List, Tuple], spatial_dim, drop_p=0.0) -> None:
+        super(UNet_decoder, self).__init__()
+
+        if spatial_dim == 3:
+            conv_class = nn.Conv3d
+            dropout_class = nn.Dropout3d
+            upconv_class = nn.ConvTranspose3d
+        else:
+            conv_class = nn.Conv2d
+            dropout_class = nn.Dropout2d
+            upconv_class = nn.ConvTranspose2d
+
+        self.upconv0 = upconv_class(in_channels=hidden_dims[5], out_channels=hidden_dims[4], kernel_size=2, stride=2)
+        self.layer0 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[4]*2, out_dim=hidden_dims[4], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[4], out_dim=hidden_dims[4], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.upconv1 = upconv_class(in_channels=hidden_dims[4], out_channels=hidden_dims[3], kernel_size=2, stride=2)
+        self.layer1 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[3]*2, out_dim=hidden_dims[3], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[3], out_dim=hidden_dims[3], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.upconv2 = upconv_class(in_channels=hidden_dims[3], out_channels=hidden_dims[2], kernel_size=2, stride=2)
+        self.layer2 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[2]*2, out_dim=hidden_dims[2], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[2], out_dim=hidden_dims[2], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.upconv3 = upconv_class(in_channels=hidden_dims[2], out_channels=hidden_dims[1], kernel_size=2, stride=2)
+        self.layer3 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[1]*2, out_dim=hidden_dims[1], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[1], out_dim=hidden_dims[1], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.upconv4 = upconv_class(in_channels=hidden_dims[1], out_channels=hidden_dims[0], kernel_size=2, stride=2)
+        self.layer4 = nn.Sequential(
+            ConvBlock(in_dim=hidden_dims[0]*2, out_dim=hidden_dims[0], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
+        )
+
+        self.fc = conv_class(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
+
+        
+
+    def forward(self, h, stage_outputs):
+
+        h = self.upconv0(h)
+        h = torch.concat([h, stage_outputs['stage5']], dim=1) 
+        h = self.layer0(h)
+
+        h = self.upconv1(h)
+        h = torch.concat([h, stage_outputs['stage4']], dim=1) 
+        h = self.layer1(h)
+
+        h = self.upconv2(h)
+        h = torch.concat([h, stage_outputs['stage3']], dim=1) 
+        h = self.layer2(h)
+
+        h = self.upconv3(h)
+        h = torch.concat([h, stage_outputs['stage2']], dim=1) 
+        h = self.layer3(h)
+
+        h = self.upconv4(h)
+        h = torch.concat([h, stage_outputs['stage1']], dim=1) 
+        h = self.layer4(h)
+
+        h = self.fc(h)
+
+        return h
+    
+
+class UNet(nn.Module):
+    def __init__(self, input_dim, out_dim, hidden_dims:Union[Tuple, List], spatial_dim, dropout_p=0.0) -> None:
+        super(UNet, self).__init__()
+        assert spatial_dim in [2,3] and hidden_dims
+
+        self.encoder = UNet_encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+        self.decoder = UNet_decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+
+    
     def forward(self, x):
 
         enc_out, stage_outputs = self.encoder(x)
         out = self.decoder(enc_out, stage_outputs)
 
         return out
-class SqueezeExcitation3D(nn.Module):
-    def __init__(self, in_dim, reduction_ratio=4) -> None:
-        super(SqueezeExcitation3D, self).__init__()
-
-        self.squeeze = nn.AdaptiveAvgPool3d(1) # 1x1x1xC
-
-        self.excitation = nn.Sequential(
-            nn.Conv3d(in_channels=in_dim, out_channels=in_dim//reduction_ratio, kernel_size=1, stride=1, bias=False),
-            nn.SiLU(),
-            nn.Conv3d(in_channels=in_dim//reduction_ratio, out_channels=in_dim, kernel_size=1, stride=1, bias=False),
-            nn.Sigmoid()
-        )
-    
-    def forward(self, x):
-
-        se_out = self.squeeze(x)
-
-        se_out = self.excitation(se_out)
-
-        return x * se_out
-
-
-
-class FusedMBConv3d(nn.Module):
-    def __init__(self, in_dim, out_dim, expansion_ratio=4, squeeze_ratio=4, stride=1, dropout_p=0.1) -> None:
-        super(FusedMBConv3d, self).__init__()
-        self.use_residual = in_dim == out_dim and stride == 1 
-        hidden_dim = int(in_dim * expansion_ratio)
-        padding = 1
-
-        self.conv = nn.Sequential(
-            nn.Conv3d(in_channels=in_dim, out_channels=hidden_dim, kernel_size=3, stride=stride, padding=1, bias=False),
-            nn.InstanceNorm3d(hidden_dim),
-            nn.SiLU(),
-            nn.Dropout3d(p=dropout_p)
-        )
-
-        self.se = SqueezeExcitation3D(in_dim=hidden_dim, reduction_ratio=squeeze_ratio)
-
-        self.projection = nn.Sequential(
-            nn.Conv3d(in_channels=hidden_dim, out_channels=out_dim, kernel_size=1, stride=1, bias=False),
-            nn.InstanceNorm3d(out_dim),
-            nn.Dropout3d(p=dropout_p)
-        )
-    
-    def forward(self, x):
-        h = self.conv(x)
-        h = self.se(h)
-        h = self.projection(h)
-
-        if self.use_residual:
-            h = h + x
-        
-        return h
-    
-
-
-class Encoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, dropout_p=0.1) -> None:
-        super(Encoder, self).__init__()
-
-        # layers = 
-        self.conv1 = nn.Sequential(*[FusedMBConv3d(in_dim=input_dim, out_dim=hidden_dim[0], stride=2, dropout_p=dropout_p)]+ \
-              [FusedMBConv3d(in_dim=hidden_dim[0], out_dim=hidden_dim[0], stride=1, dropout_p=dropout_p) for _ in range(1)])
-
-        self.conv2 = nn.Sequential(*[FusedMBConv3d(in_dim=hidden_dim[0], out_dim=hidden_dim[1], stride=2, dropout_p=dropout_p)] \
-              +[FusedMBConv3d(in_dim=hidden_dim[1], out_dim=hidden_dim[1], stride=1, dropout_p=dropout_p) for _ in range(2)]
-        )
-
-        self.conv3 = nn.Sequential(*[FusedMBConv3d(in_dim=hidden_dim[1], out_dim=hidden_dim[2], stride=2, dropout_p=dropout_p)] \
-              +[FusedMBConv3d(in_dim=hidden_dim[2], out_dim=hidden_dim[2], stride=1, dropout_p=dropout_p) for _ in range(3)]
-        )
-
-        self.conv4 = nn.Sequential(*[FusedMBConv3d(in_dim=hidden_dim[2], out_dim=hidden_dim[3], stride=2, dropout_p=dropout_p)] \
-              +[FusedMBConv3d(in_dim=hidden_dim[3], out_dim=hidden_dim[3], stride=1, dropout_p=dropout_p) for _ in range(4)]
-        )
-
-    def forward(self, x):
-
-        h1 = self.conv1(x)
-        h2 = self.conv2(h1)
-        h3 = self.conv3(h2)
-        h4 = self.conv4(h3)
-
-        stage_outputs = [h1, h2, h3]
-
-        return h4, stage_outputs
-    
-
-class Decoder(nn.Module):
-    def __init__(self, hidden_dim, out_dim, dropout_p=0.1):
-        super(Decoder, self).__init__()
-
-        
-        self.up_conv1 = nn.ConvTranspose3d(hidden_dim[3], hidden_dim[2], kernel_size=2, stride=2)
-        self.conv1 = nn.Sequential(*[FusedMBConv3d(in_dim=hidden_dim[3], out_dim=hidden_dim[2], stride=1, dropout_p=dropout_p)] \
-              +[FusedMBConv3d(in_dim=hidden_dim[2], out_dim=hidden_dim[2], stride=1, dropout_p=dropout_p) for _ in range(4) ]
-        )
-
-        self.up_conv2 = nn.ConvTranspose3d(hidden_dim[2], hidden_dim[1], kernel_size=2, stride=2)
-        self.conv2 = nn.Sequential(*[FusedMBConv3d(in_dim=hidden_dim[2], out_dim=hidden_dim[1], stride=1, dropout_p=dropout_p)] \
-              +[FusedMBConv3d(in_dim=hidden_dim[1], out_dim=hidden_dim[1], stride=1, dropout_p=dropout_p) for _ in range(3) ]
-        )
-
-        self.up_conv3 = nn.ConvTranspose3d(hidden_dim[1], hidden_dim[0], kernel_size=2, stride=2)
-        self.conv3 = nn.Sequential(*[FusedMBConv3d(in_dim=hidden_dim[1], out_dim=hidden_dim[0], stride=1, dropout_p=dropout_p)] \
-              +[FusedMBConv3d(in_dim=hidden_dim[0], out_dim=hidden_dim[0], stride=1, dropout_p=dropout_p) for _ in range(2) ]
-        )
-
-        self.up_conv4 = nn.ConvTranspose3d(hidden_dim[0], hidden_dim[0], kernel_size=2, stride=2)
-        self.conv4 = nn.Sequential(*[FusedMBConv3d(in_dim=hidden_dim[0], out_dim=hidden_dim[0], stride=1, dropout_p=dropout_p)] \
-              +[FusedMBConv3d(in_dim=hidden_dim[0], out_dim=out_dim, stride=1, dropout_p=dropout_p) for _ in range(1) ]
-        )
-
-    def forward(self, enc_out, stage_outputs):
-
-        h1 = self.up_conv1(enc_out)
-        h1 = torch.concat([h1, stage_outputs[-1]], dim=1)
-        h1 = self.conv1(h1)
-
-        h2 = self.up_conv2(h1)
-        h2 = torch.concat([h2, stage_outputs[-2]], dim=1)
-        h2 = self.conv2(h2)
-
-        h3 = self.up_conv3(h2)
-        h3 = torch.concat([h3, stage_outputs[-3]], dim=1)
-        h3 = self.conv3(h3)
-
-        h4 = self.up_conv4(h3)
-        h4 = self.conv4(h4)
-
-        return h4
-
-    
 
