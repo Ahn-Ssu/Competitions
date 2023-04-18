@@ -66,9 +66,11 @@ class LightningRunner(pl.LightningModule):
 
     def configure_optimizers(self):
         # optimizer = Apollo(params=self.parameters(), lr=self.args.init_lr, beta=0.9, eps=1e-4, rebound='constant', warmup=10, init_lr=None, weight_decay=0, weight_decay_type=None)
-        optimizer = optim.AdamW(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=0.05)
-        lr_scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=100, max_lr=self.args.init_lr, min_lr=self.args.init_lr*0.001, warmup_steps=20, gamma=0.8)
-        return [optimizer], [lr_scheduler]
+        optimizer = optim.SGD(params=self.parameters(), lr=self.args.init_lr, weight_decay=self.args.weight_decay)
+        # optimizer = optim.AdamW(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=0.05)
+        # lr_scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=100, max_lr=self.args.init_lr, min_lr=self.args.init_lr*0.001, warmup_steps=20, gamma=0.8)
+        # return [optimizer], [lr_scheduler]
+        return optimizer
     
     
     def training_step(self, batch, batch_idx):

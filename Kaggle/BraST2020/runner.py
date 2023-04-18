@@ -116,14 +116,7 @@ if __name__ == '__main__':
             pin_memory=False,
             train_transform=train_transform,
             val_transform=val_transform
-            )
-
-    # train_data = MRI_dataset('./data/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData', 'nii', transform=train_transform)
-    # train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=4, persistent_workers=True, pin_memory=True)
-
-    # val_data = MRI_dataset('./data/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData', 'nii', transform=val_transform)
-    # val_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False, num_workers=4, persistent_workers=True, pin_memory=True)
-
+        )
 
         model = nets.BasicUNet(
             spatial_dims=3,
@@ -133,30 +126,7 @@ if __name__ == '__main__':
             act=("ReLU",{}),
             # dropout=0.05
         )
-    
-    # model = nets.UNETR(
-    #     in_channels=4,
-    #     out_channels=3,
-    #     img_size=(128, 128, 128),
-    # )
 
-    # model = nets.SwinUNETR(
-    #     img_size=[128,128,128],
-    #     in_channels=4,
-    #     out_channels=3
-    # )
-
-    
-            
-
-    # replace_module(model, nn.modules.activation.LeakyReLU, MEMSWISH)
-    # replace_module(model, nn.modules.activation.GELU, MEMSWISH)
-    # print(type(model.decoder2))
-    # print(type(model.decoder2.conv_block))
-
-    # model.__class__.__name__ = "UNETR + lReLU, GELU -> MEMSWISH"
-    # print(model)
-    # exit()
     
     
         pl_runner = LightningRunner(model, args)
@@ -171,7 +141,7 @@ if __name__ == '__main__':
 
         logger = TensorBoardLogger(
             save_dir='.',
-            version=f'[{k_idx+1}Fold]_UNet(32,64,128,256,512,32)+SWISH, lr=0.005, effective batch= 1, whole img(240x240x155) no foreC'
+            version=f'[{k_idx+1}Fold]_UNet(32,64,128,256,512,32)+SWISH, lr=0.005, effective batch=4, whole img(240x240x155) no foreC'
             )
     
         trainer = Trainer(
