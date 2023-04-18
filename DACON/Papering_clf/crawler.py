@@ -1,16 +1,13 @@
-import requests
 from selenium import webdriver
-from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 import time
-import json
 import urllib.request
 
 
 chrome_options = webdriver.ChromeOptions()
-chrome_options.binary = 'C://chromedriver_win32/chromedriver.exe'
+chrome_options.binary = 'C://chromedriver_win32/chromedriver.exe' # 드라이버 실행파일 경로
 
-query = '도배하자'
+query = '춘식이'
 
 driver = webdriver.Chrome()
 driver.get(f'https://www.google.com/imghp')
@@ -34,17 +31,18 @@ while True :
         break
 
 img_elements = driver.find_elements(By.CSS_SELECTOR,".rg_i")
-img_rst = []
+imgs = []
 
 for idx, img in enumerate(img_elements) :
     print(f"{query} : {idx+1}/{len(img_elements)} proceed...")
     try :
         img.click()
         time.sleep(PAUSE_TIME)
+        # 이부분에서 에러나면, 직접 개발자 도구 활용해서 XPATH 추출한 뒤에 변경
         img_element = driver.find_element(By.XPATH,'//*[@id="Sva75c"]/div[2]/div/div[2]/div[2]/div[2]/c-wiz/div/div[2]/div[1]/a/img[1]')
         img_src = img_element.get_attribute('src')
         img_alt = img_element.get_attribute('alt')
-        img_rst.append({
+        imgs.append({
             'alt' : img_alt,
             'src' : img_src
         })
@@ -60,7 +58,8 @@ import os
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
-for idx, one in enumerate(img_rst):
+total_N = len(imgs)
+for idx, one in enumerate(imgs):
     src = one['src']
     alt = one['alt']
     urllib.request.urlretrieve(src,  f"{save_path}\{query}_{idx}.png")
