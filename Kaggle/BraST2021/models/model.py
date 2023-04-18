@@ -10,21 +10,21 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
 
         self.conv_layer = conv_class(in_channels=in_dim, out_channels=out_dim, kernel_size=3, stride=1, padding=1, bias=False)
-        self.norm = nn.InstanceNorm3d(out_dim)
-        self.act = nn.LeakyReLU()
+        self.norm = nn.InstanceNorm3d(out_dim, affine=True)
+        self.act = nn.LeakyReLU(negative_slope=0.1, inplace=True)
         
         if drop_p > 0:
             self.drop = dropout_class(p=drop_p)
         else:
             self.drop = None
 
-        self._init_layer_weights()
+    #     self._init_layer_weights()
         
-    def _init_layer_weights(self):
-        for module in self.modules():
-            if hasattr(module, 'weights'):
-                # nn.init.xavier_uniform_(module.weight,)
-                module.weight.data.normal_(mean=0.0, std=0.5)
+    # def _init_layer_weights(self):
+    #     for module in self.modules():
+    #         if hasattr(module, 'weights'):
+    #             nn.init.xavier_uniform_(module.weight)
+    #             # module.weight.data.normal_(mean=0.0, std=0.5)
 
     def forward(self, x):
 
@@ -34,7 +34,7 @@ class ConvBlock(nn.Module):
         if self.drop:
             x = self.drop(x)
         
-        x = self.act(x)
+        self.act(x)
 
         return x
     
@@ -77,10 +77,6 @@ class UNet_encoder(nn.Module):
             ConvBlock(in_dim=hidden_dims[4], out_dim=hidden_dims[4], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
         )
 
-        self.layer6 = nn.Sequential(
-            ConvBlock(in_dim=hidden_dims[4], out_dim=hidden_dims[5], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
-            ConvBlock(in_dim=hidden_dims[5], out_dim=hidden_dims[5], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
-        )
 
         
 
@@ -105,10 +101,7 @@ class UNet_encoder(nn.Module):
 
         x = self.pool(x)
         x = self.layer5(x)
-        stage_outputs['stage5'] = x
 
-        x = self.pool(x)
-        x = self.layer6(x)
 
         return x, stage_outputs
     
@@ -124,12 +117,6 @@ class UNet_decoder(nn.Module):
             conv_class = nn.Conv2d
             dropout_class = nn.Dropout2d
             upconv_class = nn.ConvTranspose2d
-
-        self.upconv0 = upconv_class(in_channels=hidden_dims[5], out_channels=hidden_dims[4], kernel_size=2, stride=2)
-        self.layer0 = nn.Sequential(
-            ConvBlock(in_dim=hidden_dims[4]*2, out_dim=hidden_dims[4], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p),
-            ConvBlock(in_dim=hidden_dims[4], out_dim=hidden_dims[4], conv_class=conv_class, dropout_class=dropout_class, drop_p=drop_p)
-        )
 
         self.upconv1 = upconv_class(in_channels=hidden_dims[4], out_channels=hidden_dims[3], kernel_size=2, stride=2)
         self.layer1 = nn.Sequential(
@@ -161,9 +148,7 @@ class UNet_decoder(nn.Module):
 
     def forward(self, h, stage_outputs):
 
-        h = self.upconv0(h)
-        h = torch.concat([h, stage_outputs['stage5']], dim=1) 
-        h = self.layer0(h)
+
 
         h = self.upconv1(h)
         h = torch.concat([h, stage_outputs['stage4']], dim=1) 
