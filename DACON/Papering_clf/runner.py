@@ -40,8 +40,8 @@ if __name__ == '__main__':
     args.img_size = 384
 
     args.batch_size = 128
-    args.epochs = 80
-    args.init_lr = 0.00008
+    args.epochs = 400
+    args.init_lr = 0.008
     args.weight_decay = 0.05
 
     args.seed = 41
@@ -66,9 +66,17 @@ if __name__ == '__main__':
 
     train_transform_4_origin = A.Compose([
                             A.Resize(args.img_size,args.img_size),
+                            A.AdvancedBlur(),
+                            A.ColorJitter(),
+                            A.GaussNoise(),
+                            A.OpticalDistortion(distort_limit=(-0.3, 0.3), shift_limit=0.5, p=0.5),
+                            A.HorizontalFlip(),
+                            A.Affine(scale=(0.9, 2), translate_percent=(-0.1, 0.1), rotate=(-10, 10), shear=(-20,20)),
                             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
+                            A.ElasticTransform(alpha=300),
                             ToTensorV2()
                             ])
+    
     test_transform = A.Compose([
                             A.Resize(args.img_size,args.img_size),
                             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
@@ -80,7 +88,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size = args.batch_size, shuffle=False, num_workers=4)
 
     val_dataset = CustomDataset(val['img_path'].values, val['label'].values, test_transform)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size//2, shuffle=False, num_workers=4)
 
     model = BaseModel(len(le.classes_))
     pl_runner = LightningRunner(model, args)
@@ -97,12 +105,12 @@ if __name__ == '__main__':
 
     logger = TensorBoardLogger(
         save_dir='.',
-        version=f'ConvNeXt_t, lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]'
+        version=f'ConvNeXt_t from scratch, Geo + Value || lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]*3'
         )
 
     trainer = Trainer(
         max_epochs=args.epochs,
-        devices=1,
+        devices=[0,1,2],
         accelerator='gpu',
         precision=16,
         # strategy=DDPStrategy(find_unused_parameters=False),

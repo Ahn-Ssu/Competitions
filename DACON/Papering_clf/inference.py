@@ -43,7 +43,7 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False
 
 model = BaseModel(19)
 
-ckpt = '/root/Competitions/DACON/Papering_clf/lightning_logs/ConvNeXt_t, lr=[0.0008], img_size = [384], bz=[128]/checkpoints/BaseModel-epoch=057-train_loss=0.6754-avg_f1=0.8362.ckpt'
+ckpt = '/root/Competitions/DACON/Papering_clf/lightning_logs/ConvNeXt_t, Geo+value || lr=[8e-05], img_size = [384], bz=[128]/checkpoints/BaseModel-epoch=055-train_loss=0.8598-avg_f1=0.8759.ckpt'
 pl_runner = LightningRunner.load_from_checkpoint(ckpt, network=model, args=args)
 
 DEVICE = 'cuda:0'
@@ -62,7 +62,7 @@ for x in tqdm(test_loader):
 inferences = le.inverse_transform(inferences)
 submit = pd.read_csv('/root/Competitions/DACON/Papering_clf/data/sample_submission.csv')
 submit['label'] = inferences
-submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/ConvNeXt_t, lr=[0.0008], img_size = [384], bz=[128](train_loss=0.6754-avg_f1=0.8362).csv', index=False)
+submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/ConvNeXt_t, Geo+value || lr=[8e-05], img_size = [384], bz=[128](train_loss=0.8598-avg_f1=0.8759).csv', index=False)
     
 
 
