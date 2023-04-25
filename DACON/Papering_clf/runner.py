@@ -40,8 +40,8 @@ if __name__ == '__main__':
     args.img_size = 384
 
     args.batch_size = 128
-    args.epochs = 400
-    args.init_lr = 0.008
+    args.epochs = 80
+    args.init_lr = 8e-5
     args.weight_decay = 0.05
 
     args.seed = 41
@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     
 
-    all_img_list = glob.glob('./data/train/*/*')
+    all_img_list = glob.glob('./data_processed/train/*/*')
     df = pd.DataFrame(columns=['img_path', 'label'])
     df['img_path'] = all_img_list
     df['label'] = df['img_path'].apply(lambda x : str(x).split('/')[-2])
@@ -85,10 +85,10 @@ if __name__ == '__main__':
 
 
     train_dataset = CustomDataset(train['img_path'].values, train['label'].values, train_transform_4_origin)
-    train_loader = DataLoader(train_dataset, batch_size = args.batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size = args.batch_size, shuffle=True, num_workers=4)
 
     val_dataset = CustomDataset(val['img_path'].values, val['label'].values, test_transform)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size//2, shuffle=False, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size//4, shuffle=False, num_workers=4)
 
     model = BaseModel(len(le.classes_))
     pl_runner = LightningRunner(model, args)
@@ -105,12 +105,12 @@ if __name__ == '__main__':
 
     logger = TensorBoardLogger(
         save_dir='.',
-        version=f'ConvNeXt_t from scratch, Geo + Value || lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]*3'
+        version=f'ConvNeXt_t proc data, Geo + Value || lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]'
         )
 
     trainer = Trainer(
         max_epochs=args.epochs,
-        devices=[0,1,2],
+        devices=[0],
         accelerator='gpu',
         precision=16,
         # strategy=DDPStrategy(find_unused_parameters=False),
