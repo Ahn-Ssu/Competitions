@@ -22,6 +22,7 @@ if __name__ == '__main__':
     from pytorch_lightning.strategies.ddp import DDPStrategy
     from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, LearningRateFinder
     from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
+    from pytorch_lightning import tuner as Tuner
 
     import albumentations as A
     from albumentations.pytorch.transforms import ToTensorV2
@@ -29,17 +30,20 @@ if __name__ == '__main__':
     import glob    
     import pandas as pd
 
+
     from lighting import LightningRunner
     from data_loader import *
     # from kfold_pl_data import KFold_pl_DataModule
     from model.models import *
+    from torch.utils.data import DataLoader
+
 
 
     args = EasyDict()
 
-    args.img_size = 384
+    args.img_size = 368
 
-    args.batch_size = 128
+    args.batch_size = 32
     args.epochs = 80
     args.init_lr = 8e-5
     args.weight_decay = 0.05
@@ -51,7 +55,7 @@ if __name__ == '__main__':
 
     
 
-    all_img_list = glob.glob('./data_processed/train/*/*')
+    all_img_list = glob.glob('./aug_data/train/*/*')
     df = pd.DataFrame(columns=['img_path', 'label'])
     df['img_path'] = all_img_list
     df['label'] = df['img_path'].apply(lambda x : str(x).split('/')[-2])
@@ -88,7 +92,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size = args.batch_size, shuffle=True, num_workers=4)
 
     val_dataset = CustomDataset(val['img_path'].values, val['label'].values, test_transform)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size//4, shuffle=False, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size//2, shuffle=False, num_workers=4)
 
     model = BaseModel(len(le.classes_))
     pl_runner = LightningRunner(model, args)
@@ -99,20 +103,20 @@ if __name__ == '__main__':
     checkpoint_callback = ModelCheckpoint(
         monitor='avg_f1',
         filename=f'{model.__class__.__name__}'+'-{epoch:03d}-{train_loss:.4f}-{avg_f1:.4f}',
-        # filename=f'{model.__class__.__name__}'+'-{epoch:03d}-{train_loss:.4f}-{avg_f1:.4f}',
         mode='max'
     )
 
     logger = TensorBoardLogger(
         save_dir='.',
-        version=f'ConvNeXt_t proc data, Geo + Value || lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]'
+        # version='LEARNING CHECK',
+        version=f'[Single 0.7] --backbone ConvNeXt_t, --data Aug, --transform Geo+Value || lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]'
         )
 
     trainer = Trainer(
         max_epochs=args.epochs,
         devices=[0],
         accelerator='gpu',
-        precision=16,
+        precision='16-mixed',
         # strategy=DDPStrategy(find_unused_parameters=False),
         callbacks=[lr_monitor, checkpoint_callback],
         # check_val_every_n_epoch=2,
@@ -122,7 +126,6 @@ if __name__ == '__main__':
         # auto_lr_find=True
         # accumulate_grad_batches=2
         )
-    
 
 
     trainer.fit(
