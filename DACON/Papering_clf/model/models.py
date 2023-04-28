@@ -6,7 +6,9 @@ class BaseModel(nn.Module):
     def __init__(self, num_classes:int):
         super(BaseModel, self).__init__()
         
-        self.backbone = models.convnext_tiny(pretrained=True)
+        self.backbone = models.convnext_tiny(weights=models.ConvNeXt_Tiny_Weights.DEFAULT)
+        # self.backbone = models.swin_v2_t(weights=models.Swin_V2_T_Weights.DEFAULT)
+        # self.backbone = models.densenet121(weights=models.DenseNet121_Weights.DEFAULT)
         self.norm = nn.LayerNorm(1000)
         self.act = nn.SiLU()
         self.drop = nn.Dropout1d()
