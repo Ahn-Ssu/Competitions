@@ -48,7 +48,7 @@ if __name__ == '__main__':
     args.init_lr = 8e-5
     args.weight_decay = 0.05
 
-    args.seed = 41
+    args.seed = 1120
     
 
     seed_everything(args.seed)
@@ -102,8 +102,8 @@ if __name__ == '__main__':
 
         logger = TensorBoardLogger(
             save_dir='.',
-            version='LEARNING CHECK',
-            # version=f'[{k_idx+1} Fold] --backbone ConvNeXt_t, --data Aug, --transform Geo+Value || lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]'
+            # version='LEARNING CHECK',
+            version=f'[{k_idx+1} Fold] -m ConvNeXt_t, -d A, -t GV diffSEED || lr=[{args.init_lr}], img=[{args.img_size}], bz=[{args.batch_size}]'
             )
 
         trainer = Trainer(
