@@ -1,4 +1,6 @@
 import os
+# os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+# os.environ["CUDA_VISIBLE_DEVICES"]="2,3"
 from sklearn import preprocessing
 
 from sklearn.model_selection import train_test_split
@@ -48,7 +50,7 @@ if __name__ == '__main__':
     args.init_lr = 8e-5
     args.weight_decay = 0.05
 
-    args.seed = 41
+    args.seed = 1120
     
 
     seed_everything(args.seed)
@@ -59,13 +61,16 @@ if __name__ == '__main__':
     df = pd.DataFrame(columns=['img_path', 'label'])
     df['img_path'] = all_img_list
     df['label'] = df['img_path'].apply(lambda x : str(x).split('/')[-2])
-
+ 
 
     train, val, _, _ = train_test_split(df, df['label'], test_size=0.3, stratify=df['label'], random_state=args.seed)
 
     le = preprocessing.LabelEncoder()
     train['label'] = le.fit_transform(train['label'])
     val['label'] = le.transform(val['label'])
+
+    args.prior = df.label.value_counts().to_frame().sort_index().values
+    args.num_cls = len(le.classes_)
 
 
     train_transform_4_origin = A.Compose([
@@ -108,8 +113,8 @@ if __name__ == '__main__':
 
     logger = TensorBoardLogger(
         save_dir='.',
-        # version='LEARNING CHECK',
-        version=f'[Single 0.7] --backbone ConvNeXt_t, --data Aug, --transform Geo+Value || lr=[{args.init_lr}], img_size = [{args.img_size}], bz=[{args.batch_size}]'
+        version='LEARNING CHECK',
+        # version=f'[S.7] --m ConvNeXt, --d A, --t GV --L F long || lr=[{args.init_lr}], img=[{args.img_size}], bz=[{args.batch_size}]'
         )
 
     trainer = Trainer(
@@ -119,7 +124,7 @@ if __name__ == '__main__':
         precision='16-mixed',
         # strategy=DDPStrategy(find_unused_parameters=False),
         callbacks=[lr_monitor, checkpoint_callback],
-        # check_val_every_n_epoch=2,
+        # check_val_every_n_epoch=2,py
         check_val_every_n_epoch=2,
         # log_every_n_steps=1,
         logger=logger,
