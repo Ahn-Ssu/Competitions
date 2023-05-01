@@ -1,7 +1,7 @@
 # Carcarsh Video Classification
 - 기간: 2월 6일 ~ 3월 13일
 - 대회 URL: [제1회 코스포 x 데이콘 자동차 충돌 분석 AI경진대회(채용 연계형)](https://dacon.io/competitions/official/236046/overview/description)
-- 성적: 
+- 성적: private 상위 14% **모니터링하기 너무 어려워서 대회 중간에 하다가 말았음**
 
 ## Problem
 - train data: class imblance가 매우 심한 dashcam videos, 실제로는 1 column classification이지만 multi-label classification으로 전환 할 수 있는 lookup table이 주어짐
