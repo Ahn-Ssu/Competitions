@@ -7,7 +7,7 @@ from timm.loss import AsymmetricLossSingleLabel
 from timm.data import Mixup
 
 # from torchmetrics.functional import dice, f1_score
-from sklearn.metrics import f1_score
+from sklearn.metrics import classification_report, f1_score
 import numpy as np
 from functools import partial
 from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
@@ -32,6 +32,57 @@ class FocalLoss(nn.Module):
             return F_loss
 
 
+import functools
+
+import numpy as np
+import torch
+from torch import nn
+import torch.nn.functional as F
+# from utils import *
+
+
+class LADELoss(nn.Module):
+    def __init__(self, num_classes=10, prior=None, remine_lambda=0.1):
+        super().__init__()
+        if prior is not None:
+            self.img_num_per_cls = torch.Tensor(prior).squeeze().cuda()
+            self.prior = self.img_num_per_cls / self.img_num_per_cls.sum()
+        else:
+            self.prior = None
+
+        self.balanced_prior = torch.tensor(1. / num_classes).float().cuda()
+        self.remine_lambda = remine_lambda
+
+        self.num_classes = num_classes
+        self.cls_weight = (self.img_num_per_cls.float() / torch.sum(self.img_num_per_cls.float())).cuda()
+
+    def mine_lower_bound(self, x_p, x_q, num_samples_per_cls):
+        N = x_p.size(-1)
+        first_term = torch.sum(x_p, -1) / (num_samples_per_cls + 1e-8)
+        second_term = torch.logsumexp(x_q, -1) - np.log(N)
+
+        return first_term - second_term, first_term, second_term
+
+    def remine_lower_bound(self, x_p, x_q, num_samples_per_cls):
+        loss, first_term, second_term = self.mine_lower_bound(x_p, x_q, num_samples_per_cls)
+        reg = (second_term ** 2) * self.remine_lambda
+        return loss - reg, first_term, second_term
+
+    def forward(self, y_pred, target, q_pred=None):
+        """
+        y_pred: N x C
+        target: N
+        """
+        per_cls_pred_spread = y_pred.T * (target == torch.arange(0, self.num_classes).view(-1, 1).type_as(target))  # C x N
+        # print(self.prior.device, self.balanced_prior.device)
+        pred_spread = (y_pred - torch.log(self.prior + 1e-9) + torch.log(self.balanced_prior + 1e-9)).T  # C x N
+
+        num_samples_per_cls = torch.sum(target == torch.arange(0, self.num_classes).view(-1, 1).type_as(target), -1).float()  # C
+        estim_loss, first_term, second_term = self.remine_lower_bound(per_cls_pred_spread, pred_spread, num_samples_per_cls)
+
+        loss = -torch.sum(estim_loss * self.cls_weight)
+        return loss
+    
 class AsymmetricLoss(nn.Module):
     def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
         super(AsymmetricLoss, self).__init__()
@@ -84,19 +135,21 @@ class LightningRunner(pl.LightningModule):
 
         self.model = network
         self.loss = FocalLoss()
+        # self.loss = LADELoss(args.num_cls, args.prior)
         self.args = args
+        self.traget_names=[f'cls{idx}' for idx in range(19)]
 
-        mixup_args = {
-            'mixup_alpha': 0.8,
-            'cutmix_alpha': 1,
-            'cutmix_minmax': None,
-            'prob': 1.0,
-            'switch_prob': 0.5,
-            'mode': 'elem',
-            'label_smoothing': 0.1,
-            'num_classes': 19}
+        # mixup_args = {
+        #     'mixup_alpha': 0.8,
+        #     'cutmix_alpha': 1,
+        #     'cutmix_minmax': None,
+        #     'prob': 1.0,
+        #     'switch_prob': 0.5,
+        #     'mode': 'elem',
+        #     'label_smoothing': 0.1,
+        #     'num_classes': 19}
 
-        self.mixup_fn = Mixup(**mixup_args)
+        # self.mixup_fn = Mixup(**mixup_args)
         # self.rand_erase = RandomE
 
         # val archieve
@@ -119,8 +172,8 @@ class LightningRunner(pl.LightningModule):
         # print(batch)
 
 
-        if (x.shape[0] % 2 == 0):
-                x, y = self.mixup_fn(x, y)
+        # if (x.shape[0] % 2 == 0):
+        #         x, y = self.mixup_fn(x, y)
         
         # print(f'in training x.y shape: {x.shape}, {y.shape}')
         y_hat = self.model(x)
@@ -152,19 +205,34 @@ class LightningRunner(pl.LightningModule):
         # dice_et  = np.mean(np.stack([output['dice_et'] for output in outputs]))
 
         val_loss = np.mean(self.loss_log)
+        
         avg_f1 = f1_score(self.true_labels, self.preds, average='weighted')
-        # print(val_loss, avg_f1)
         self.log_dict({'val_loss':val_loss, 'avg_f1':avg_f1}, prog_bar=True, sync_dist=True)
 
-        self.loss_log = []
-        self.true_labels = []
-        self.preds = []
+        if len(np.unique(self.true_labels)) == 19:
+            report = classification_report(self.true_labels, self.preds, target_names=self.traget_names)
+            report_lines = report.split('\n')
+
+            for line in report_lines[2: 2+len(self.traget_names)]:
+                cls_name, *cls_metrics, support = line.split()
+                self.log_dict({
+                    f'precision/{cls_name}': torch.Tensor([float(cls_metrics[0])]),
+                    f'recall/{cls_name}': torch.Tensor([float(cls_metrics[1])]),
+                    f'f1-score/{cls_name}': torch.Tensor([float(cls_metrics[2])]),
+                    f'support/{cls_name}': torch.Tensor([float(support)]),
+                })
+            
+
+        self.loss_log.clear()
+        self.true_labels.clear()
+        self.preds.clear()
 
     def _shared_eval_step(self, batch, batch_idx):
         imgs,  labels = batch
 
         y_hat = self.model(imgs)
         # print(y_hat.shape, labels.shape)
+        # print(y_hat.device, labels.device)
         loss = self.loss(y_hat, labels)
 
         self.preds += y_hat.argmax(1).detach().cpu().numpy().tolist()
