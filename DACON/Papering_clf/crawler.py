@@ -49,6 +49,7 @@ for idx, img in enumerate(img_elements) :
         
     except :
         print(f'err in {idx}')
+        print('Maybe due to robots.txt - restriction')
         pass
 
 driver.close()
