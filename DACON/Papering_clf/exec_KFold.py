@@ -1,5 +1,6 @@
 import os
 from sklearn import preprocessing
+from datetime import date, datetime, timezone, timedelta
 
 
 # def replace_module(modules:nn.Module, target, source):
@@ -41,20 +42,20 @@ if __name__ == '__main__':
 
     args = EasyDict()
 
-    args.img_size = 368
+    args.img_size = 512
+    args.val_img_size = 544 
 
-    args.batch_size = 32
+    args.batch_size = 16
     args.epochs = 80
-    args.init_lr = 8e-5
+    args.init_lr = 4e-5
     args.weight_decay = 0.05
-
-    args.seed = 1120
+    args.seed = 41
     
 
     seed_everything(args.seed)
     
 
-
+    
     train_transform_4_origin = A.Compose([
                             A.Resize(args.img_size,args.img_size),
                             A.AdvancedBlur(),
@@ -63,21 +64,23 @@ if __name__ == '__main__':
                             A.OpticalDistortion(distort_limit=(-0.3, 0.3), shift_limit=0.5, p=0.5),
                             A.HorizontalFlip(),
                             A.Affine(scale=(0.9, 2), translate_percent=(-0.1, 0.1), rotate=(-10, 10), shear=(-20,20)),
-                            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
                             A.ElasticTransform(alpha=300),
+                            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
                             ToTensorV2()
                             ])
     
     test_transform = A.Compose([
-                            A.Resize(args.img_size, args.img_size),
+                            A.Resize(args.val_img_size, args.val_img_size),
                             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
                             ToTensorV2()
                             ])
     
     num_split = 5 
-
+    KST = timezone(timedelta(hours=9))
+    start = datetime.now(KST)
+    _day = str(start)[:10]
     for k_idx in range(num_split):
-        pl_dataFolder = KFold_pl_DataModule(data_dir='./aug_data/train/*/*',
+        pl_dataFolder = KFold_pl_DataModule(data_dir='./processedData/train/*/*',
                             k_idx=k_idx,
                             num_split=num_split,
                             split_seed=args.seed,
@@ -103,12 +106,12 @@ if __name__ == '__main__':
         logger = TensorBoardLogger(
             save_dir='.',
             # version='LEARNING CHECK',
-            version=f'[{k_idx+1} Fold] -m ConvNeXt_t, -d A, -t GV diffSEED || lr=[{args.init_lr}], img=[{args.img_size}], bz=[{args.batch_size}]'
+            version=f'{_day}/[{k_idx+1} Fold] REPRODUCE -m convnext_large, -d P, -t GV -opt AdamP || lr=[{args.init_lr}] img=[{args.img_size}] bz=[{args.batch_size}] 2gpu'
             )
 
         trainer = Trainer(
             max_epochs=args.epochs,
-            devices=[0],
+            devices=[1,2],
             accelerator='gpu',
             precision='16-mixed',
             # strategy=DDPStrategy(find_unused_parameters=False),
@@ -129,3 +132,4 @@ if __name__ == '__main__':
         )
 
     # fold iteration END
+    print(f'execution done --- time cost: [{datetime.now(KST) - start}]')
