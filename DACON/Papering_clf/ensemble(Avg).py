@@ -1,3 +1,5 @@
+import os
+# os.environ["CUDA_VISIBLE_DEVICES"] =""
 import glob
 import pandas as pd
 
@@ -11,14 +13,13 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
 from model.models import BaseModel
-import os
 import numpy as np
 
 
 args = EasyDict()
 
-args.img_size = 384
-args.batch_size = 8
+args.img_size = 544
+args.batch_size = 4
 
 
 test_transform = A.Compose([
@@ -43,15 +44,16 @@ path = [f'/root/Competitions/DACON/Papering_clf/aug_data/test/{file.split("/")[-
 test_dataset = CustomDataset(path, None, test_transform)
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
-CV_path = '/root/Competitions/DACON/Papering_clf/lightning_logs/5Fold_lowerLR'
+CV_path = '/root/Competitions/DACON/Papering_clf/lightning_logs/5fold_convNeXt-Large_P'
 ckpts = glob.glob(f'{CV_path}/*/checkpoints/*')
 
 inferences = []
-DEVICE = 'cuda:3'
+DEVICE = 'cuda:0'
+
 for ckpt in ckpts:
-    model = BaseModel(19)
-    pl_runner = LightningRunner.load_from_checkpoint(ckpt, network=model, args=args)
-    pl_runner.to(DEVICE)
+    model = BaseModel(19).to(DEVICE)
+    pl_runner = LightningRunner.load_from_checkpoint(ckpt, network=model, args=args).to(DEVICE)
+    # pl_runner
     pl_runner.eval()
 
     inference  = []
@@ -71,7 +73,7 @@ inferences = np.argmax(inferences, axis=1)
 inferences = le.inverse_transform(inferences)
 submit = pd.read_csv('/root/Competitions/DACON/Papering_clf/aug_data/sample_submission.csv')
 submit['label'] = inferences
-submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/3out5_fold_lowerLR.csv', index=False)
+submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/5fold_convNeXt-Large_P-p544.csv', index=False)
     
 
 
