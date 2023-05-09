@@ -1,6 +1,8 @@
 COCOval17/
 sample/
+data/
 test/
 train/
 *.h5
 *.pt
+*.ckpt
