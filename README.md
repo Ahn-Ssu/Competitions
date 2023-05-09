@@ -1,7 +1,2 @@
-# Competitions
-
-
-## DACON
-#### 4D block multi-label classification
-## Kaggle
-#### BraST 20202 (MICCAI) semantic segmentation
+# Competitions & Challenges 
+국내 국외 AI 경진대회 + Challenges 참가용 repo
