@@ -5,7 +5,6 @@ nilearn
 pydicom
 nibabel
 
-
 pandas
 scipy
 scikit-learn
@@ -20,3 +19,4 @@ tensorboard
 tensorboardX
 monai
 timm
+adamp
