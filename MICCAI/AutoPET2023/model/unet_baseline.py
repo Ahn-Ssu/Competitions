@@ -97,26 +97,26 @@ class decoder(nn.Module):
 
         self.upconv1 = upconv_class(in_channels=hidden_dims[4], out_channels=hidden_dims[3], kernel_size=2, stride=2)
         self.layer1 = nn.Sequential(
-            ConvBlock(in_dim=hidden_dims[3]*2, out_dim=hidden_dims[3], drop_p=drop_p),
-            ConvBlock(in_dim=hidden_dims[3], out_dim=hidden_dims[3], drop_p=drop_p)
+            ConvBlock(in_dim=hidden_dims[3]*2, out_dim=hidden_dims[3], spatial_dim=spatial_dim, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[3], out_dim=hidden_dims[3], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
         self.upconv2 = upconv_class(in_channels=hidden_dims[3], out_channels=hidden_dims[2], kernel_size=2, stride=2)
         self.layer2 = nn.Sequential(
-            ConvBlock(in_dim=hidden_dims[2]*2, out_dim=hidden_dims[2], drop_p=drop_p),
-            ConvBlock(in_dim=hidden_dims[2], out_dim=hidden_dims[2], drop_p=drop_p)
+            ConvBlock(in_dim=hidden_dims[2]*2, out_dim=hidden_dims[2], spatial_dim=spatial_dim, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[2], out_dim=hidden_dims[2], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
         self.upconv3 = upconv_class(in_channels=hidden_dims[2], out_channels=hidden_dims[1], kernel_size=2, stride=2)
         self.layer3 = nn.Sequential(
-            ConvBlock(in_dim=hidden_dims[1]*2, out_dim=hidden_dims[1], drop_p=drop_p),
-            ConvBlock(in_dim=hidden_dims[1], out_dim=hidden_dims[1], drop_p=drop_p)
+            ConvBlock(in_dim=hidden_dims[1]*2, out_dim=hidden_dims[1], spatial_dim=spatial_dim, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[1], out_dim=hidden_dims[1], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
         self.upconv4 = upconv_class(in_channels=hidden_dims[1], out_channels=hidden_dims[0], kernel_size=2, stride=2)
         self.layer4 = nn.Sequential(
-            ConvBlock(in_dim=hidden_dims[0]*2, out_dim=hidden_dims[0], drop_p=drop_p),
-            ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], drop_p=drop_p)
+            ConvBlock(in_dim=hidden_dims[0]*2, out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p),
+            ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
         self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
