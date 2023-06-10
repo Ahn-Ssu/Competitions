@@ -6,7 +6,7 @@ from sklearn import preprocessing
 from tqdm import tqdm
 
 from data_loader import *
-from lighting import LightningRunner
+from lightning import LightningRunner
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
@@ -15,8 +15,8 @@ from model.models import BaseModel
 
 args = EasyDict()
 
-args.img_size = 384
-args.batch_size = 8
+args.img_size = 512
+args.batch_size = 1
 
 
 test_transform = A.Compose([
@@ -27,15 +27,15 @@ test_transform = A.Compose([
 
 le = preprocessing.LabelEncoder()
 
-all_img_list = glob.glob('./aug_data/train/*/*')
+all_img_list = glob.glob('./data/train/*/*')
 df = pd.DataFrame(columns=['img_path', 'label'])
 df['img_path'] = all_img_list
 df['label'] = df['img_path'].apply(lambda x : str(x).split('/')[-2])
 df['label'] = le.fit_transform(df['label'])
 
-test = pd.read_csv('/root/Competitions/DACON/Papering_clf/aug_data/test.csv')
+test = pd.read_csv('/root/Competitions/DACON/Papering_clf/data/test.csv')
 path = test['img_path'].values
-path = [f'/root/Competitions/DACON/Papering_clf/aug_data/test/{file.split("/")[-1]}' for file in path]
+path = [f'/root/Competitions/DACON/Papering_clf/data/test/{file.split("/")[-1]}' for file in path]
 
 
 test_dataset = CustomDataset(path, None, test_transform)
@@ -43,10 +43,10 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False
 
 model = BaseModel(19)
 
-ckpt = '/root/Competitions/DACON/Papering_clf/lightning_logs/[S.7] --m ConvNeXt, --d A, --t GV --L F || lr=[8e-05], img=[368], bz=[16]/checkpoints/BaseModel-epoch=059-train_loss=0.7788-avg_f1=0.8711.ckpt'
+ckpt = '/root/Competitions/DACON/Papering_clf/lightning_logs/[1 Fold] -m ConvNeXt_base, -d A, -t GV || lr=[8e-05], img=[512], bz=[32]/checkpoints/BaseModel-epoch=059-train_loss=0.7751-avg_f1=0.8802.ckpt'
 pl_runner = LightningRunner.load_from_checkpoint(ckpt, network=model, args=args)
 
-DEVICE = 'cuda:2'
+DEVICE = 'cuda:1'
 pl_runner.to(DEVICE)
 pl_runner.eval()
 
@@ -60,9 +60,9 @@ for x in tqdm(test_loader):
     del x 
 
 inferences = le.inverse_transform(inferences)
-submit = pd.read_csv('/root/Competitions/DACON/Papering_clf/aug_data/sample_submission.csv')
+submit = pd.read_csv('/root/Competitions/DACON/Papering_clf/data/sample_submission.csv')
 submit['label'] = inferences
-submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/[S.7] -m ConvNeXt, -d A, -t GV -L F || lr=[8e-05], img=[368], bz=[16](epc=059-loss=0.7788-f1=0.8711).csv', index=False)
+submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/[1f] -m ConvNeXt_b, -d A, -t GV || lr=[8e-05], img=[512], bz=[32], pim=[512](-epc=059-loss=0.7751-f1=0.8802).csv', index=False)
     
 
 

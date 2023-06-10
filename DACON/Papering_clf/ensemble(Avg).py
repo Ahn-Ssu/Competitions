@@ -1,5 +1,3 @@
-import os
-# os.environ["CUDA_VISIBLE_DEVICES"] =""
 import glob
 import pandas as pd
 
@@ -8,7 +6,7 @@ from sklearn import preprocessing
 from tqdm import tqdm
 
 from data_loader import *
-from lighting import LightningRunner
+from lightning import LightningRunner
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
@@ -30,21 +28,21 @@ test_transform = A.Compose([
 
 le = preprocessing.LabelEncoder()
 
-all_img_list = glob.glob('./aug_data/train/*/*')
+all_img_list = glob.glob('./data/train/*/*')
 df = pd.DataFrame(columns=['img_path', 'label'])
 df['img_path'] = all_img_list
 df['label'] = df['img_path'].apply(lambda x : str(x).split('/')[-2])
 df['label'] = le.fit_transform(df['label'])
 
-test = pd.read_csv('/root/Competitions/DACON/Papering_clf/aug_data/test.csv')
+test = pd.read_csv('/root/Competitions/DACON/Papering_clf/data/test.csv')
 path = test['img_path'].values
-path = [f'/root/Competitions/DACON/Papering_clf/aug_data/test/{file.split("/")[-1]}' for file in path]
+path = [f'/root/Competitions/DACON/Papering_clf/data/test/{file.split("/")[-1]}' for file in path]
 
 
 test_dataset = CustomDataset(path, None, test_transform)
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
-CV_path = '/root/Competitions/DACON/Papering_clf/lightning_logs/5fold_convNeXt-Large_P'
+CV_path = '/root/Competitions/DACON/Papering_clf/lightning_logs/2023-05-20'
 ckpts = glob.glob(f'{CV_path}/*/checkpoints/*')
 
 inferences = []
@@ -71,9 +69,9 @@ inferences = np.mean(np.array(inferences), axis=0)
 inferences = np.argmax(inferences, axis=1)
 
 inferences = le.inverse_transform(inferences)
-submit = pd.read_csv('/root/Competitions/DACON/Papering_clf/aug_data/sample_submission.csv')
+submit = pd.read_csv('/root/Competitions/DACON/Papering_clf/data/sample_submission.csv')
 submit['label'] = inferences
-submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/5fold_convNeXt-Large_P-p544.csv', index=False)
+submit.to_csv('/root/Competitions/DACON/Papering_clf/prediction/5fold_convNeXt-Large_aug-realP-p544.csv', index=False)
     
 
 

@@ -1,25 +1,12 @@
-import os
-# os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
-# os.environ["CUDA_VISIBLE_DEVICES"]="2,3"
-from sklearn import preprocessing
-
-from sklearn.model_selection import train_test_split
-
-# def replace_module(modules:nn.Module, target, source):
-#         for name, child in modules.named_children():
-#             if isinstance(child, target):
-#                 modules._modules[name] = source()
-#             # elif isinstance(child, nn.Sequential):
-#             else: 
-#                 replace_module(child, target, source)
-
-
-
 
 if __name__ == '__main__':
 
     from easydict import EasyDict
+
+    from sklearn import preprocessing
+    from sklearn.model_selection import train_test_split
     from lightning_fabric.utilities.seed import seed_everything
+
     from pytorch_lightning import Trainer
     from pytorch_lightning.strategies.ddp import DDPStrategy
     from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, LearningRateFinder
@@ -33,13 +20,10 @@ if __name__ == '__main__':
     import pandas as pd
 
 
-    from lighting import LightningRunner
+    from lightning import LightningRunner
     from data_loader import *
-    # from kfold_pl_data import KFold_pl_DataModule
     from model.models import *
     from torch.utils.data import DataLoader
-
-
 
     args = EasyDict()
 

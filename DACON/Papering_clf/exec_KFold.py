@@ -1,18 +1,4 @@
-import os
-from sklearn import preprocessing
-from datetime import date, datetime, timezone, timedelta
-
-
-# def replace_module(modules:nn.Module, target, source):
-#         for name, child in modules.named_children():
-#             if isinstance(child, target):
-#                 modules._modules[name] = source()
-#             # elif isinstance(child, nn.Sequential):
-#             else: 
-#                 replace_module(child, target, source)
-
-
-
+from datetime import datetime, timezone, timedelta
 
 if __name__ == '__main__':
 
@@ -22,20 +8,13 @@ if __name__ == '__main__':
     from pytorch_lightning.strategies.ddp import DDPStrategy
     from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, LearningRateFinder
     from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
-    from pytorch_lightning import tuner as Tuner
 
     import albumentations as A
     from albumentations.pytorch.transforms import ToTensorV2
 
-    import glob    
-    import pandas as pd
-
-
-    from lighting import LightningRunner
+    from lightning import LightningRunner
     from data_loader import *
-    # from kfold_pl_data import KFold_pl_DataModule
     from model.models import *
-    from torch.utils.data import DataLoader
     from stratifiedKfold_pl_data import KFold_pl_DataModule
 
 
@@ -54,7 +33,6 @@ if __name__ == '__main__':
 
     seed_everything(args.seed)
     
-
     
     train_transform_4_origin = A.Compose([
                             A.Resize(args.img_size,args.img_size),
@@ -80,7 +58,7 @@ if __name__ == '__main__':
     start = datetime.now(KST)
     _day = str(start)[:10]
     for k_idx in range(num_split):
-        pl_dataFolder = KFold_pl_DataModule(data_dir='./processedData/train/*/*',
+        pl_dataFolder = KFold_pl_DataModule(data_dir='./proc_data/train/*/*',
                             k_idx=k_idx,
                             num_split=num_split,
                             split_seed=args.seed,
@@ -92,7 +70,6 @@ if __name__ == '__main__':
                             val_transform=test_transform)
 
         pl_dataFolder.setup(stage=None)
-        # exit()
         model = BaseModel(pl_dataFolder.num_cls)
         pl_runner = LightningRunner(model, args)
         lr_monitor = LearningRateMonitor(logging_interval='step')
@@ -106,12 +83,12 @@ if __name__ == '__main__':
         logger = TensorBoardLogger(
             save_dir='.',
             # version='LEARNING CHECK',
-            version=f'{_day}/[{k_idx+1} Fold] REPRODUCE -m convnext_large, -d P, -t GV -opt AdamP || lr=[{args.init_lr}] img=[{args.img_size}] bz=[{args.batch_size}] 2gpu'
+            version=f'{_day}/[{k_idx+1} Fold] -m convnext_large, -d realP, -t GV -opt AdamP || lr=[{args.init_lr}] img=[{args.img_size}] bz=[{args.batch_size}] 2gpu'
             )
 
         trainer = Trainer(
             max_epochs=args.epochs,
-            devices=[1,2],
+            devices=[2,3],
             accelerator='gpu',
             precision='16-mixed',
             # strategy=DDPStrategy(find_unused_parameters=False),
