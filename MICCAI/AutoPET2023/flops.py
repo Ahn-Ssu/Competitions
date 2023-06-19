@@ -7,6 +7,18 @@ import torchvision.models as models
 from model import unet_baseline
 from thop import profile
 
+from monai.networks.nets import SwinUNETR
+
+
+def model_size_info(model, input):
+    flops, params = profile(model=model, inputs=(input,), verbose=False)
+    print("%10s | %10s | %10s" % ("Model", "Params(M)", "FLOPs(G)"))
+    print("-----------|------------|-----------")
+    print(
+            "%10s | %10.2f | %10.2f" % (model.__class__.__name__, params / (1000 ** 2), flops / (1000 ** 3))
+        )
+    print()
+input = torch.rand(1, 2, 128, 128, 128)
 
 model = unet_baseline.UNet(
                             spatial_dim=3,
@@ -16,16 +28,22 @@ model = unet_baseline.UNet(
                             dropout_p=0.
                         )
 
+model_size_info(model, input)
+model = SwinUNETR(
+    img_size=128,
+    in_channels=2,
+    out_channels=2,
+    depths=(2,2,2,2),
+    feature_size=24,
+    spatial_dims=3
+)
+
+model_size_info(model, input)
 
 
-input = torch.rand(1, 2, 128, 128, 128)
-flops, params = profile(model=model, inputs=(input,), verbose=False)
-print("%10s | %10s | %10s" % ("Model", "Params(M)", "FLOPs(G)"))
-print("-----------|------------|-----------")
-print(
-        "%10s | %10.2f | %10.2f" % (model.__class__.__name__, params / (1000 ** 2), flops / (1000 ** 3))
-    )
-print()
+
+
+
 
 ## 3x3x3 kernel UNet with 2 channel input dim and hidden_dims =[32,32,64,128,256]
 #      Model |  Params(M) |   FLOPs(G)
