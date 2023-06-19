@@ -10,21 +10,21 @@ class ConvBlock(nn.Module):
 
         if spatial_dim == 3:
             self.conv = nn.Conv3d(in_channels=in_dim, out_channels=out_dim, kernel_size=3, stride=1, padding=1, bias=False)
-            self.norm = nn.InstanceNorm3d(num_features=out_dim)
+            self.norm = nn.InstanceNorm3d(num_features=out_dim, affine=True)
             self.drop = nn.Dropout3d(p=drop_p) if drop_p else nn.Identity()
         else:
             self.conv = nn.Conv2d(in_channels=in_dim, out_channels=out_dim, kernel_size=3, stride=1, padding=1, bias=False)
-            self.norm = nn.InstanceNorm2d(num_features=out_dim)
+            self.norm = nn.InstanceNorm2d(num_features=out_dim, affine=True)
             self.drop = nn.Dropout2d(p=drop_p) if drop_p else nn.Identity()
 
         self.act = nn.LeakyReLU()
 
-        self._init_layer_weights()
+    #     self._init_layer_weights()
         
-    def _init_layer_weights(self):
-        for module in self.modules():
-            if hasattr(module, 'weights'):
-                nn.init.kaiming_normal_(module.weight,)
+    # def _init_layer_weights(self):
+    #     for module in self.modules():
+    #         if hasattr(module, 'weights'):
+    #             nn.init.kaiming_normal_(module.weight,)flops=323692265472.0 flops=3806843633664.0
 
     def forward(self, x):
         x = self.conv(x)
@@ -40,7 +40,7 @@ class encoder(nn.Module):
         super(encoder, self).__init__()
 
         self.pool = nn.MaxPool3d(2,2) if spatial_dim == 3 else nn.MaxPool2d(2,2)
-        
+
         self.layer1 = nn.Sequential(
                             ConvBlock(in_dim=in_dim,         out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p),
                             ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p),
@@ -144,7 +144,7 @@ class decoder(nn.Module):
     
 
 class UNet(nn.Module):
-    def __init__(self, input_dim, out_dim, hidden_dims:Union[Tuple, List], spatial_dim, dropout_p=0.0) -> None:
+    def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0) -> None:
         super(UNet, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
 
