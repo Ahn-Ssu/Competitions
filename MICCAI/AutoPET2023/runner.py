@@ -16,40 +16,45 @@ def run():
     from pytorch_lightning.loggers import TensorBoardLogger
 
     from monai.transforms import (
-                            Activations,
-                            Activationsd,
-                            AsDiscrete,
-                            AsDiscreted,
-                            ConvertToMultiChannelBasedOnBratsClassesd,
                             Compose,
-                            Invertd,
+                            OneOf,
+
                             LoadImaged,
-                            MapTransform,
-                            NormalizeIntensityd,
-                            Orientationd,
-                            RandFlipd,
-                            RandScaleIntensityd,
-                            RandShiftIntensityd,
-                            RandSpatialCropd,
-                            CropForegroundd,
-                            RandAffined,
-                            Resized,
-                            Spacingd,
                             EnsureTyped,
-                            EnsureChannelFirstd,
+                            ScaleIntensityRanged,
+                            Orientationd,
+                            CropForegroundd, 
+                            RandCropByPosNegLabeld,
+                            RandSpatialCropd,
+
+                            RandFlipd,
+                            RandRotated,
+                            RandZoomd,
+
+                            RandShiftIntensityd,
+                            RandScaleIntensityd,
+                            RandAdjustContrastd,
+                            RandGaussianNoised,
+                            RandGaussianSmoothd,
+                            RandGaussianSharpend,
+                            HistogramNormalized,
+
+                            RandCoarseDropoutd,
+                            RandCoarseShuffled
                         )
+    from monai.data import set_track_meta
 
     from dataloader import KFold_pl_DataModule
     from model import unet_baseline
     from lightning import LightningRunner
 
-    from monai.networks.nets import UNet
+    from monai.networks.nets import BasicUNet, SwinUNETR
 
     args = EasyDict()
 
-    args.img_size = 144
+    args.img_size = 128
     args.batch_size = 1
-    args.epoch = 80
+    args.epoch = 80*2
     args.init_lr = 1e-4
     args.weight_decay = 0.05
 
@@ -57,42 +62,67 @@ def run():
     seed.seed_everything(args.seed)
 
 
-    train_transform = Compose(
-                [
-                    # load 4 Nifti images and stack them together
-                    EnsureChannelFirstd(keys=["image", "label"]),
-                    EnsureTyped(keys=["image", "label"]),
-                    Orientationd(keys=["image", "label"], axcodes="RAS"),
-                    # Spacingd(
-                    #     keys=["image", "label"],
-                    #     pixdim=(1.0, 1.0, 1.0),
-                    #     mode=("bilinear", "nearest"),
-                    # ),
-                    # the following from this is augmentation
-                    # CropForegroundd(keys=["image","label"], source_key="image", k_divisible=[192, 192, 192]),
-                    RandSpatialCropd(keys=["image", "label"], roi_size=[args.img_size,args.img_size,args.img_size], random_size=False),
-                    NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-                    RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-                    RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-                    RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-                    RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-                    RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-                ]
-            )
-    test_transform = Compose(
-                [
-                    EnsureChannelFirstd(keys=["image", "label"]),
-                    EnsureTyped(keys=["image", "label"]),
-                    Orientationd(keys=["image", "label"], axcodes="RAS"),
-                    # Spacingd(
-                    #     keys=["image", "label"],
-                    #     pixdim=(1.0, 1.0, 1.0),
-                    #     mode=("bilinear", "nearest"),
-                    # ),
-                    NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-                ]
-            )
+    all_key = ['ct','pet','label']
 
+    test_transform = Compose([
+        LoadImaged(keys=all_key, ensure_channel_first=True),
+        EnsureTyped(keys=all_key, track_meta=False),
+        Orientationd(keys=all_key, axcodes='RAS'),
+        ScaleIntensityRanged(keys='ct',
+                                 a_min=-100, a_max=400,
+                                 b_min=0, b_max=1, clip=True),
+        ScaleIntensityRanged(keys='pet',
+                                a_min=0, a_max=30,
+                                b_min=0, b_max=1, clip=True),
+
+        CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
+    ]
+    )
+
+    train_transform = Compose([
+            LoadImaged(keys=all_key, ensure_channel_first=True),
+            EnsureTyped(keys=all_key, track_meta=False), # for training track_meta=False, monai.data.set_track_meta(false)
+            Orientationd(keys=all_key, axcodes='RAS'),
+            ScaleIntensityRanged(keys='ct',
+                                 a_min=-100, a_max=400,
+                                 b_min=0, b_max=1, clip=True),
+            ScaleIntensityRanged(keys='pet',
+                                 a_min=0, a_max=30,
+                                 b_min=0, b_max=1, clip=True),
+            CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
+            OneOf([
+                RandCropByPosNegLabeld(keys=all_key, label_key='label', 
+                                       spatial_size=(args.img_size,args.img_size,args.img_size), 
+                                       pos=1, neg=0.2, num_samples=1,
+                                       image_key='pet',
+                                       image_threshold=0), # 흑색종일때 label에 따라서 잘 되는지 확인해야함 
+                RandSpatialCropd(keys=all_key, roi_size=[args.img_size,args.img_size,args.img_size], random_size=False
+                                 )],
+                weights=[0.8, 0.2],
+                ),
+            # spatial
+            RandFlipd(keys=all_key, prob=0.5, spatial_axis=0), 
+            RandFlipd(keys=all_key, prob=0.1, spatial_axis=1),
+            RandFlipd(keys=all_key, prob=0.1, spatial_axis=2),
+            # RandRotated(keys=all_key, range_x=20, range_y=5, range_z=5, prob=0.2),
+            # RandZoomd(keys=all_key, prob=0.2),
+
+            # intensity
+            RandShiftIntensityd(keys=['pet','ct'], offsets=0.1, prob=0.2),
+            RandScaleIntensityd(keys=['pet','ct'], prob=0.2, factors=0.1),
+            RandAdjustContrastd(keys=['pet','ct'], prob=0.2),
+            OneOf([
+                RandGaussianNoised(keys=['pet','ct'], prob=0.2),
+                RandGaussianSmoothd(keys=['pet','ct'], prob=0.2),
+                RandGaussianSharpend(keys=['pet','ct'], prob=0.2),
+            ]),
+            
+            # HistogramNormalized(keys=['pet','ct'], ),
+
+         #
+        ]) # ㄱㅣㅈㅗㄴ [-100, 400] - [0, 30] || ㅈㅣㄱㅡㅁ ㄷㅗㄹㅇㅏㄱㅏㄴㅡㄴ ㄱㅓ -100 500, 0 100
+
+    # set_track_meta(False)
 
     num_split = 5
     KST = timezone(timedelta(hours=9))
@@ -116,46 +146,61 @@ def run():
 
         model = unet_baseline.UNet(
                             input_dim=2,
-                            out_dim=1,
-                            hidden_dims=[16,32,32,64,128], # 16 32 32 64 128 is default setting of Monai
+                            out_dim=2,
+                            hidden_dims=[32,64,128,256,512], # 16 32 32 64 128 is default setting of Monai
                             spatial_dim=3,
                             dropout_p=0.
                         )
+        
+        # model = SwinUNETR(
+        #     img_size=128,
+        #     in_channels=2,
+        #     out_channels=2,
+        #     feature_size=24,
+        #     spatial_dims=3
+        # )
+        
+        print(model)
+        
         pl_runner = LightningRunner(network=model, args=args)
         
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
         checkpoint_callback = ModelCheckpoint(
-                                    monitor='avg_f1',
-                                    filename=f'{model.__class__.__name__}'+'-{epoch:03d}-{train_loss:.4f}-{avg_f1:.4f}',
+                                    monitor='val_dice',
+                                    filename=f'{model.__class__.__name__}'+'-{epoch:03d}-{train_loss:.4f}-{val_dice:.4f}',
                                     mode='max'
                                 )
         
         logger = TensorBoardLogger(
                             save_dir='.',
-                            version='LEARNING CHECK',
-                            # version=f'{_day}/[{fold_idx+1} Fold] REPRODUCE -m convnext_large, -d P, -t GV -opt AdamP || lr=[{args.init_lr}] img=[{args.img_size}] bz=[{args.batch_size}] 2gpu'
+                            # version='LEARNING CHECK',
+                            version=f'{_day}/[{fold_idx+1} Fold] Aug || CFG == -m UNet(32-256) AdamP -lr {args.init_lr} -img_sz {args.img_size}] bz {args.batch_size} x 2GPU(0,1)'
                         )
         
         trainer = Trainer(
                     max_epochs=args.epoch,
-                    devices=[0,1,2,3],
+                    devices=[0,1],
                     accelerator='gpu',
-                    precision='16-mixed',
+                    # precision='16-mixed',
                     # strategy=DDPStrategy(find_unused_parameters=False),
                     callbacks=[lr_monitor, checkpoint_callback],
                     # check_val_every_n_epoch=2,
-                    check_val_every_n_epoch=5,
+                    check_val_every_n_epoch=3,
                     # log_every_n_steps=1,
                     logger=logger,
                     # auto_lr_find=True
                     # accumulate_grad_batches=2
                 )
         
+
+        
         trainer.fit(
                 model= pl_runner,
                 datamodule= pl_dataloder
             )
+        
+        break;
 
     # fold iteration END
     print(f'execution done --- time cost: [{datetime.now(KST) - start}]')
