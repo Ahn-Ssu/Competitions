@@ -10,11 +10,12 @@ from monai.transforms import LoadImaged
 
 
 class PETCT_dataset(Dataset):
-    def __init__(self, image_path=None, diagnosis=None,  transform=None) -> None:
+    def __init__(self, image_path=None, diagnosis=None,  transform=None, negative_val=None) -> None:
         super().__init__()
         self.image_path = image_path
         self.diagnosis = diagnosis
         self.transform = transform
+        self.negative_val = negative_val[0] if negative_val else negative_val
 
     def __getitem__(self, index):
         return self.get_SCANS(self.image_path[index], self.diagnosis[index])
@@ -29,14 +30,17 @@ class PETCT_dataset(Dataset):
         seg = f'{path}/SEG.nii.gz'
 
         path_d = {
-            'image': (ctres, suv),
-            'label': seg
+            'ct': ctres,
+            'pet': suv,
+            'label': seg,
+            'diagnosis': diagnosis
         }
 
-        data_d = LoadImaged(keys=['image','label'])(path_d)
+        # data_d = LoadImaged(keys=['image','label'])(path_d)
+        data_d = self.transform(path_d)
 
-        if self.transform:
-            data_d = self.transform(data_d)
+        if isinstance(data_d, list):
+            data_d = data_d[0]
 
         # if data_d["label"].shape[-1] > 500:
         #     print(path)
@@ -71,16 +75,20 @@ class KFold_pl_DataModule(pl.LightningDataModule):
     def setup(self, stage=None) -> None:
         if not self.train_data and not self.val_data:
             meta_df = pd.read_csv('/root/Competitions/MICCAI/AutoPET2023/data/Metadata-FDG_PET_CT.csv')
+            meta_df = meta_df[meta_df['SOP Class Name'] == 'Segmentation Storage'] # to remove the redundancy path
             file_paths = meta_df['File Location'].apply(lambda x: '/'.join([self.hparams.data_dir] + x.split('/')[2:4])) # Even faster 
 
             df = pd.DataFrame(columns=['img_path', 'diagnosis'])
             df['img_path'] = file_paths
             df['diagnosis'] = meta_df.diagnosis
 
-            for idx in range(len(meta_df)): assert df.iloc[idx].diagnosis== meta_df.iloc[idx].diagnosis
+            # df = df[df['diagnosis'] != 'NEGATIVE']
+
+            # for idx in range(len(meta_df)): assert df.iloc[idx].diagnosis== meta_df.iloc[idx].diagnosis
 
             le = preprocessing.LabelEncoder()
             df['diagnosis'] = le.fit_transform(df['diagnosis'])
+            NEGATIVE_VAL = [3] # le.transform(['NEGATIVE'])
 
             kf = StratifiedKFold(n_splits=self.hparams.num_split,
                        shuffle=True,
@@ -94,7 +102,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
             val = df.iloc[val_idx]
             self.num_cls = len(le.classes_)
             
-            self.train_data = PETCT_dataset(train['img_path'].values, train['diagnosis'].values, self.hparams.train_transform)
+            self.train_data = PETCT_dataset(train['img_path'].values, train['diagnosis'].values, self.hparams.train_transform, NEGATIVE_VAL)
             self.val_data = PETCT_dataset(val['img_path'].values, val['diagnosis'].values, self.hparams.val_transform)
 
     def train_dataloader(self):
@@ -108,7 +116,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
                           
     def val_dataloader(self):
         return DataLoader(self.val_data,
-                          batch_size=self.hparams.batch_size,
+                          batch_size=1,
                           shuffle=False,
                           num_workers=self.hparams.num_workers,
                           persistent_workers=self.hparams.persistent_workers,
@@ -169,4 +177,5 @@ if __name__ == "__main__":
     for idx, batch in enumerate(val_dataloader):
         image, seg_label = batch["image"], batch["label"]
         print(f'{idx}, {image.shape=}, {seg_label.shape=}')
+        
         
