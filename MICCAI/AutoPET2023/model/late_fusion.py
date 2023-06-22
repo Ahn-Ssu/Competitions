@@ -143,9 +143,9 @@ class decoder(nn.Module):
         return h
     
 
-class UNet(nn.Module):
+class UNet_lateF(nn.Module):
     def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0) -> None:
-        super(UNet, self).__init__()
+        super(UNet_lateF, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
 
         self.PET_encoder = encoder(in_dim=input_dim//2, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
@@ -155,13 +155,19 @@ class UNet(nn.Module):
 
     
     def forward(self, x):
+        # split each input modality
+        ct, pet = torch.chunk(x,chunks=2, dim=1)
 
-        PET_enc_out, PET_stage_outputs = self.PET_encoder(x)
-        CT_enc_out, CT_stage_outputs = self.PET_encoder(x)
+        # encoder branches
+        PET_enc_out, PET_stage_outputs = self.PET_encoder(pet)
+        CT_enc_out, CT_stage_outputs = self.PET_encoder(ct)
+
+        # process each output of the encoders to pass into the decoder 
         enc_out = torch.concat([PET_enc_out, CT_enc_out], dim=1)
         stage_outputs = {}
-        for idx in range(len(stage_outputs)):
-            stage_outputs[f'stage{idx+1}'] = torch.concat([PET_stage_outputs['stage{idx+1}'], CT_stage_outputs['stage{idx+1}']], dim=1)
+        for idx in range(len(CT_stage_outputs)):
+            stage_outputs[f'stage{idx+1}'] = torch.concat([PET_stage_outputs[f'stage{idx+1}'], CT_stage_outputs[f'stage{idx+1}']], dim=1)
+        
         out = self.decoder(enc_out, stage_outputs)
 
         return out
