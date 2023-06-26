@@ -132,7 +132,7 @@ class LightningRunner(pl.LightningModule):
 
         # [400, 400, D] -> [~250, ~250, D]
         if batch_idx % 10 == 0 :
-            self.log_img_on_TB(self, ct, pet, seg_y, pred, batch_idx)
+            self.log_img_on_TB(ct, pet, seg_y, pred, batch_idx)
 
 
         print('**per prediction monitor**')
@@ -188,22 +188,24 @@ class LightningRunner(pl.LightningModule):
        
         # Log the images (Give them different names)
         # [400, 400, D] -> [~250, ~250, D]
-        print(ct.shape)    # torch.Size([1, 1, 347, 347, 232])
-        print(pet.shape)   # torch.Size([1, 1, 347, 347, 232]) 
-        print(seg_y.shape) # torch.Size([1, 1, 347, 347, 232])
-        print(pred.size()) # torch.Size([1, 347, 347, 232])
+        # print(ct.shape)    # torch.Size([1, 1, 347, 347, 232])
+        # print(pet.shape)   # torch.Size([1, 1, 347, 347, 232]) 
+        # print(seg_y.shape) # torch.Size([1, 1, 347, 347, 232])
+        # print(pred.size()) # torch.Size([1, 347, 347, 232])
 
-        print(ct.squeeze().shape)   # torch.Size([345, 345, 284])
-        print(pred.squeeze().shape) # torch.Size([345, 345, 284])
+        ct = ct.squeeze(0)
+        pet = pet.squeeze(0)
+        seg_y = seg_y.squeeze(0)
 
-        W, H, D = ct.size()
-        target_idx = [idx for idx in range(H//4, H, H//4)]
+        C, W, H, D = ct.size()
+        target_idx = [idx for idx in range(H//5, H, H//5)]
 
         for vol_idx in target_idx:
-            tb_logger.add_image(f"CT/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
-            tb_logger.add_image(f"PET/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
-            tb_logger.add_image(f"GroundTruth/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
-            tb_logger.add_image(f"Prediction/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
+            # add_images('title', data', dataformats='NCHW)
+            tb_logger.add_image(f"CT/BZ[{batch_idx}]_{vol_idx}", ct[..., vol_idx, :], dataformats='CHW')
+            tb_logger.add_image(f"PET/BZ[{batch_idx}]_{vol_idx}", pet[..., vol_idx, :], dataformats='CHW')
+            tb_logger.add_image(f"GroundTruth/BZ[{batch_idx}]_{vol_idx}", torch.where(seg_y[..., vol_idx, :] ==1, 255, 0), dataformats='CHW')
+            tb_logger.add_image(f"Prediction/BZ[{batch_idx}]_{vol_idx}", torch.where(pred[..., vol_idx, :]==1, 255, 0), dataformats='CHW')
 
 
 
