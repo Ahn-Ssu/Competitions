@@ -11,6 +11,7 @@ from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
 from adamp import AdamP
 
 import pytorch_lightning as pl
+import pytorch_lightning.loggers as pl_loggers
 
 from monai.losses.dice import DiceFocalLoss, DiceLoss
 from monai.metrics import DiceMetric, ConfusionMatrixMetric
@@ -60,13 +61,14 @@ class LightningRunner(pl.LightningModule):
         # print(f'\t IN training || PRED  = {torch.sum(pred).item()}, {torch.unique(pred)}')
         # print(f'\t IN training || y_hat = {torch.unique(y_hat)}')
         #### Since the tarinig step losses are too oscilated, remove the logging code line
-        # self.log("train_loss", loss.item(), on_step=True, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
+        self.log("train_loss", loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
         return loss
     
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
-        self._shared_eval_step(batch)
+        self._shared_eval_step(batch, batch_idx)
 
     def on_validation_epoch_end(self) -> None:
+        self.trainer.logger
 
         val_loss = np.mean(self.loss_log)
         val_dice = self.dice_M.aggregate().item()
@@ -83,7 +85,7 @@ class LightningRunner(pl.LightningModule):
         self.fpr_log.clear()
         self.fnr_log.clear()
     
-    def _shared_eval_step(self, batch):
+    def _shared_eval_step(self, batch, batch_idx):
         ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
         image = torch.concat([ct,pet],dim=1)
 
@@ -96,6 +98,8 @@ class LightningRunner(pl.LightningModule):
                                     mode= "constant" # GAUSSIAN = "gaussian" 
                                 )
         loss = self.loss(y_hat, seg_y)
+
+
         
         # for using the following code, you should use track_meta=False of EnsureTyped
         outputs = [self.post_pred(i) for i in decollate_batch(y_hat)]
@@ -119,11 +123,16 @@ class LightningRunner(pl.LightningModule):
         fpr = false_positives / (false_positives + true_negatives+ 1e-6)
         fnr = false_negatives / (false_negatives + true_positives+ 1e-6)
 
-        self.dice_M(y_pred=outputs, y=labels)
+        if len(torch.unique(seg_y)) == 2 : # 06252141 added
+            self.dice_M(y_pred=outputs, y=labels)
         # self.confusion_M(y_pred=pred.detach().cpu(), y=seg_y.squeeze(0).detach().cpu())
         self.loss_log.append(loss.item())
         self.fpr_log.append(fpr)
         self.fnr_log.append(fnr)
+
+        # [400, 400, D] -> [~250, ~250, D]
+        if batch_idx % 10 == 0 :
+            self.log_img_on_TB(self, ct, pet, seg_y, pred, batch_idx)
 
 
         print('**per prediction monitor**')
@@ -134,6 +143,7 @@ class LightningRunner(pl.LightningModule):
         print(f'\t True  (pos, neg) || {true_positives=}, {true_negatives=}')
         print(f'\t False (pos, neg) || {false_positives=}, {false_negatives=}')
         print(f'\t TPR, TNR || {fpr=}, {fnr=}')
+
         
 
 
@@ -163,6 +173,38 @@ class LightningRunner(pl.LightningModule):
         # self.cls_GT.append(cls_y)
         # self.seg_pred.append(y_hat)
         # self.cls_pred.append(None)
+
+    def log_img_on_TB(self, ct, pet, seg_y, pred, batch_idx) -> None:
+         
+        # Get tensorboard logger
+        tb_logger = None
+        for logger in self.trainer.loggers:
+            if isinstance(logger, pl_loggers.TensorBoardLogger):
+                tb_logger = logger.experiment
+                break
+
+        if tb_logger is None:
+                raise ValueError('TensorBoard Logger not found')
+       
+        # Log the images (Give them different names)
+        # [400, 400, D] -> [~250, ~250, D]
+        print(ct.shape)    # torch.Size([1, 1, 347, 347, 232])
+        print(pet.shape)   # torch.Size([1, 1, 347, 347, 232]) 
+        print(seg_y.shape) # torch.Size([1, 1, 347, 347, 232])
+        print(pred.size()) # torch.Size([1, 347, 347, 232])
+
+        print(ct.squeeze().shape)   # torch.Size([345, 345, 284])
+        print(pred.squeeze().shape) # torch.Size([345, 345, 284])
+
+        W, H, D = ct.size()
+        target_idx = [idx for idx in range(H//4, H, H//4)]
+
+        for vol_idx in target_idx:
+            tb_logger.add_image(f"CT/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
+            tb_logger.add_image(f"PET/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
+            tb_logger.add_image(f"GroundTruth/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
+            tb_logger.add_image(f"Prediction/BZ[{batch_idx}]_{vol_idx}", ct[:, vol_idx, :], 0)
+
 
 
 
