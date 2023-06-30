@@ -45,7 +45,7 @@ def run():
     from monai.data import set_track_meta
 
     from dataloader import KFold_pl_DataModule
-    from model import unet_baseline
+    from model import unet_baseline, late_fusion, tail_fusion
     from lightning import LightningRunner
 
     from monai.networks.nets import BasicUNet, SwinUNETR
@@ -54,8 +54,8 @@ def run():
 
     args.img_size = 128
     args.batch_size = 1
-    args.epoch = 80*2
-    args.init_lr = 1e-4
+    args.epoch = 200
+    args.init_lr = 1e-6
     args.weight_decay = 0.05
 
     args.seed = 41
@@ -72,7 +72,7 @@ def run():
                                  a_min=-100, a_max=400,
                                  b_min=0, b_max=1, clip=True),
         ScaleIntensityRanged(keys='pet',
-                                a_min=0, a_max=30,
+                                a_min=0, a_max=40,
                                 b_min=0, b_max=1, clip=True),
 
         CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
@@ -87,7 +87,7 @@ def run():
                                  a_min=-100, a_max=400,
                                  b_min=0, b_max=1, clip=True),
             ScaleIntensityRanged(keys='pet',
-                                 a_min=0, a_max=30,
+                                 a_min=0, a_max=40,
                                  b_min=0, b_max=1, clip=True),
             CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
             OneOf([
@@ -101,25 +101,27 @@ def run():
                 weights=[0.8, 0.2],
                 ),
             # spatial
-            RandFlipd(keys=all_key, prob=0.5, spatial_axis=0), 
-            RandFlipd(keys=all_key, prob=0.1, spatial_axis=1),
-            RandFlipd(keys=all_key, prob=0.1, spatial_axis=2),
-            # RandRotated(keys=all_key, range_x=20, range_y=5, range_z=5, prob=0.2),
-            # RandZoomd(keys=all_key, prob=0.2),
+            # RandFlipd(keys=all_key, prob=0.5, spatial_axis=0), 
+            # RandFlipd(keys=all_key, prob=0.1, spatial_axis=1),
+            # RandFlipd(keys=all_key, prob=0.1, spatial_axis=2),
+            # # RandRotated(keys=all_key, range_x=20, range_y=5, range_z=5, prob=0.2),
+            # # RandZoomd(keys=all_key, prob=0.2),
 
-            # intensity
-            RandShiftIntensityd(keys=['pet','ct'], offsets=0.1, prob=0.2),
-            RandScaleIntensityd(keys=['pet','ct'], prob=0.2, factors=0.1),
-            RandAdjustContrastd(keys=['pet','ct'], prob=0.2),
-            OneOf([
-                RandGaussianNoised(keys=['pet','ct'], prob=0.2),
-                RandGaussianSmoothd(keys=['pet','ct'], prob=0.2),
-                RandGaussianSharpend(keys=['pet','ct'], prob=0.2),
-            ]),
+            # # intensity
+            # RandShiftIntensityd(keys=['pet','ct'], offsets=0.01, prob=0.2),
+            # RandScaleIntensityd(keys=['pet','ct'], prob=0.2, factors=0.1),
+            # RandAdjustContrastd(keys=['pet','ct'], prob=0.2),
+            # OneOf([
+            #     RandGaussianNoised(keys=['pet','ct'], prob=0.2),
+            #     RandGaussianSmoothd(keys=['pet','ct'], prob=0.2),
+            #     RandGaussianSharpend(keys=['pet','ct'], prob=0.2),
+            # ]),
             
-            # HistogramNormalized(keys=['pet','ct'], ),
-
-         #
+            # OneOf([
+            #     RandCoarseDropoutd(keys=['pet','ct'], prob=0.2, holes=10, spatial_size=10),
+            #     RandCoarseShuffled(keys=['pet','ct'], prob=0.2, holes=10, spatial_size=10)
+            # ]
+            # )
         ]) # ㄱㅣㅈㅗㄴ [-100, 400] - [0, 30] || ㅈㅣㄱㅡㅁ ㄷㅗㄹㅇㅏㄱㅏㄴㅡㄴ ㄱㅓ -100 500, 0 100
 
     # set_track_meta(False)
@@ -144,13 +146,30 @@ def run():
                             val_transform=test_transform
                         )
 
-        model = unet_baseline.UNet(
-                            input_dim=2,
+        # model = unet_baseline.UNet(
+        #                     input_dim=2,
+        #                     out_dim=2,
+        #                     hidden_dims=[32,64,128,256,512], # 16 32 32 64 128 is default setting of Monai
+        #                     spatial_dim=3,
+        #                     dropout_p=0.
+        #                 )
+
+        # model = late_fusion.UNet_lateF(
+        #                     input_dim=3,
+        #                     out_dim=2,
+        #                     hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
+        #                     spatial_dim=3,
+        #                     dropout_p=0.
+        #                 )
+        
+        model = tail_fusion.UNet_tailF(
+                            input_dim=3,
                             out_dim=2,
-                            hidden_dims=[32,64,128,256,512], # 16 32 32 64 128 is default setting of Monai
+                            hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
                             spatial_dim=3,
                             dropout_p=0.
-                        )
+                            use_MS=True
+            )
         
         # model = SwinUNETR(
         #     img_size=128,
@@ -162,28 +181,33 @@ def run():
         
         print(model)
         
-        pl_runner = LightningRunner(network=model, args=args)
+        pl_runner = LightningRunner(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
+        
+
         
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
         checkpoint_callback = ModelCheckpoint(
                                     monitor='val_dice',
                                     filename=f'{model.__class__.__name__}'+'-{epoch:03d}-{train_loss:.4f}-{val_dice:.4f}',
-                                    mode='max'
+                                    mode='max',
+                                    # save_top_k=1,
+                                    save_last=True
                                 )
         
         logger = TensorBoardLogger(
                             save_dir='.',
                             # version='LEARNING CHECK',
-                            version=f'{_day}/[{fold_idx+1} Fold] Aug || CFG == -m UNet(32-256) AdamP -lr {args.init_lr} -img_sz {args.img_size}] bz {args.batch_size} x 2GPU(0,1)'
+                            # version=f'IntensityRange/{_day}/[{fold_idx+1} Fold] Aug(offset=0.01), SUV(0,40) || CFG == -m UNet_lateF(16-256) AdamP -lr {args.init_lr} -img_sz {args.img_size}] bz {args.batch_size} x 2GPU(2,3)'
+                            version=f'IntensityRange/{_day}/CT=(-100, 400), PET=(0, 40) || UNet_tailF(16,256) w He+MS - GPU devices[2,3]'
                         )
         
         trainer = Trainer(
                     max_epochs=args.epoch,
-                    devices=[0,1],
+                    devices=[2,3],
                     accelerator='gpu',
                     # precision='16-mixed',
-                    # strategy=DDPStrategy(find_unused_parameters=False),
+                    strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     callbacks=[lr_monitor, checkpoint_callback],
                     # check_val_every_n_epoch=2,
                     check_val_every_n_epoch=3,
@@ -191,13 +215,17 @@ def run():
                     logger=logger,
                     # auto_lr_find=True
                     # accumulate_grad_batches=2
+                    # profiler='simple', #advanced
                 )
         
 
         
         trainer.fit(
                 model= pl_runner,
-                datamodule= pl_dataloder
+                datamodule= pl_dataloder,
+                # If we wanna keep training use this code line 
+                # 근데 잘 안되요잉
+                # ckpt_path='/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt'
             )
         
         break;
