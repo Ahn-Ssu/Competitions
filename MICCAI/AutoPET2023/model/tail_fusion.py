@@ -3,31 +3,7 @@ import torch.nn as nn
 
 from typing import Union, List, Tuple
 
-# class SqueezeExcitation(nn.Module):
-#     def __init__(self, in_dim, reduction_ratio=16, use_residual=False) -> None:
-#         super(SqueezeExcitation, self).__init__()
 
-#         self.use_residual = use_residual
-
-#         self.squeeze = nn.AdaptiveAvgPool2d(1)
-
-#         self.excitation = nn.Sequential(
-#             nn.Conv3d(in_channels=in_dim, out_channels=in_dim//reduction_ratio, kernel_size=1, stride=1),
-#             nn.SiLU(), # nn.ReLU()
-#             nn.Conv3d(in_channels=in_dim//reduction_ratio, out_channels=in_dim, kernel_size=1, stride=1),
-#             nn.Sigmoid()
-#         )
-
-    # def forward(self, x):
-
-    #     se_out = self.squeeze(x)
-    #     se_out = self.excitation(se_out)
-    #     se_out = se_out * x 
-
-    #     if self.use_residual:
-    #         se_out += x
-        
-    #     return se_out
 class ConvBlock(nn.Module):
     def __init__(self, in_dim, out_dim, spatial_dim, drop_p=0.0) -> None:
         super(ConvBlock, self).__init__()
@@ -43,8 +19,6 @@ class ConvBlock(nn.Module):
 
         self.act = nn.LeakyReLU()
 
-        # self.se = SqueezeExcitation(in_dim=out_dim, reduction_ratio=8, use_residual=True)
-
         self._init_layer_weights()
         
     def _init_layer_weights(self):
@@ -56,8 +30,6 @@ class ConvBlock(nn.Module):
         x = self.conv(x)
         x = self.norm(x)
         x = self.drop(x)
-
-        # x = self.se(x)
         x = self.act(x)
 
         return x
@@ -147,7 +119,7 @@ class decoder(nn.Module):
             ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
-        self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
+        # self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
     
     def forward(self, h, stage_outputs):
         h = self.upconv1(h)
@@ -166,23 +138,47 @@ class decoder(nn.Module):
         h = torch.concat([h, stage_outputs['stage1']], dim=1) 
         h = self.layer4(h)
 
-        h = self.fc(h)
+        # h = self.fc(h)
 
         return h
     
 
-class UNet(nn.Module):
-    def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0) -> None:
-        super(UNet, self).__init__()
+class UNet_tailF(nn.Module):
+    def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0,
+                 use_MS=False, MS_pt='/root/Competitions/MICCAI/AutoPET2023/example/Genesis_Chest_CT.pt') -> None:
+        super(UNet_tailF, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
+        self.use_MS = use_MS
+        input_dim = input_dim//2
+        hidden_dims = [dim//2 for dim in hidden_dims]
 
-        self.encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
-        self.decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+        if use_MS:
+            from model_genesis_UNet import UNet3D
+            CT_net = UNet3D()
+            CT_net.load_state_dict(torch.load(MS_pt)) 
+            
+        else:
+            self.CT_encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+            self.CT_decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
 
-    
+        self.PET_encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+        self.PET_decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+
+        self.fc = nn.Conv3d(in_channels=hidden_dims[0] + 64, out_channels=out_dim, kernel_size=1, stride=1)
+        
     def forward(self, x):
+        ct, pet = torch.chunk(x,chunks=2, dim=1)
 
-        enc_out, stage_outputs = self.encoder(x)
-        out = self.decoder(enc_out, stage_outputs)
+        if self.use_MS:
+            CT_out = self.CT_net(ct) # output dim = 64
+        else: 
+            enc_out, stage_outputs = self.CT_encoder(x)
+            CT_out = self.CT_decoder(enc_out, stage_outputs)
+
+        enc_out, stage_outputs = self.PET_encoder(x)
+        PET_out = self.PET_decoder(enc_out, stage_outputs)
+
+        out = torch.concat([CT_out, PET_out], dim=1)
+        out = self.fc(out)
 
         return out

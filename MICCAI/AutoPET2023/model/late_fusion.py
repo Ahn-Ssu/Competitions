@@ -19,12 +19,12 @@ class ConvBlock(nn.Module):
 
         self.act = nn.LeakyReLU()
 
-    #     self._init_layer_weights()
+        self._init_layer_weights()
         
-    # def _init_layer_weights(self):
-    #     for module in self.modules():
-    #         if hasattr(module, 'weights'):
-    #             nn.init.kaiming_normal_(module.weight,)flops=323692265472.0 flops=3806843633664.0
+    def _init_layer_weights(self):
+        for module in self.modules():
+            if hasattr(module, 'weights'):
+                nn.init.kaiming_normal_(module.weight, nonlinearity='leaky_relu')  # relu, leaky_relu, selu
 
     def forward(self, x):
         x = self.conv(x)
