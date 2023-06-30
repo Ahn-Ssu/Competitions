@@ -23,6 +23,7 @@ from monai.transforms import AsDiscrete, Compose, Activations, EnsureType
 class LightningRunner(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
+        self.save_hyperparameters()
         
         self.model = network
         self.args = args
@@ -92,12 +93,12 @@ class LightningRunner(pl.LightningModule):
         y_hat = sliding_window_inference(
                                     inputs=image,
                                     roi_size= (self.args.img_size,self.args.img_size,self.args.img_size), # (128, 128, 128)
-                                    sw_batch_size=4, # number of the multiprocessor
+                                    sw_batch_size=8, # number of the multiprocessor
                                     predictor= self.model,
                                     overlap=0.5,
                                     mode= "constant" # GAUSSIAN = "gaussian" 
                                 )
-        loss = self.loss(y_hat, seg_y)
+        loss = self.loss(y_hat, seg_y)  
 
 
         
@@ -131,8 +132,8 @@ class LightningRunner(pl.LightningModule):
         self.fnr_log.append(fnr)
 
         # [400, 400, D] -> [~250, ~250, D]
-        if batch_idx % 10 == 0 :
-            self.log_img_on_TB(ct, pet, seg_y, pred, batch_idx)
+        # if batch_idx % 10 == 0 :d
+        #     self.log_img_on_TB(ct, pet, seg_y, pred, batch_idx)
 
 
         print('**per prediction monitor**')
