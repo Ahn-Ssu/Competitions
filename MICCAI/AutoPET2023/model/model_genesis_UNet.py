@@ -122,17 +122,17 @@ class UNet3D(nn.Module):
         self.out_tr = OutputTransition(64, n_class)
 
     def forward(self, x):
-        self.out64, self.skip_out64 = self.down_tr64(x)
-        self.out128,self.skip_out128 = self.down_tr128(self.out64)
-        self.out256,self.skip_out256 = self.down_tr256(self.out128)
-        self.out512,self.skip_out512 = self.down_tr512(self.out256)
+        out64,  skip_out64 = self.down_tr64(x)
+        out128, skip_out128 = self.down_tr128(out64)
+        out256, skip_out256 = self.down_tr256(out128)
+        out512, skip_out512 = self.down_tr512(out256)
 
-        self.out_up_256 = self.up_tr256(self.out512,self.skip_out256)
-        self.out_up_128 = self.up_tr128(self.out_up_256, self.skip_out128)
-        self.out_up_64 = self.up_tr64(self.out_up_128, self.skip_out64)
-        self.out = self.out_tr(self.out_up_64)
+        out_up_256 = self.up_tr256(out512, skip_out256)
+        out_up_128 = self.up_tr128(out_up_256, skip_out128)
+        out_up_64 = self.up_tr64(out_up_128, skip_out64)
+        # self.out = self.out_tr(self.out_up_64)
 
-        return self.out
+        return out_up_64
     
 
 model = UNet3D()
