@@ -153,9 +153,17 @@ class UNet_tailF(nn.Module):
         hidden_dims = [dim//2 for dim in hidden_dims]
 
         if use_MS:
-            from model_genesis_UNet import UNet3D
-            CT_net = UNet3D()
-            CT_net.load_state_dict(torch.load(MS_pt)) 
+            from model.model_genesis_UNet import UNet3D
+            from collections import OrderedDict
+
+            loaded_state_dict = torch.load(MS_pt)['state_dict']
+            new_state_dict = OrderedDict()
+            for n, v in loaded_state_dict.items():
+                name = n.replace("module.","") # .module이 중간에 포함된 형태라면 (".module","")로 치환
+                new_state_dict[name] = v
+
+            self.CT_net = UNet3D()
+            self.CT_net.load_state_dict(new_state_dict) 
             
         else:
             self.CT_encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
@@ -172,13 +180,17 @@ class UNet_tailF(nn.Module):
         if self.use_MS:
             CT_out = self.CT_net(ct) # output dim = 64
         else: 
-            enc_out, stage_outputs = self.CT_encoder(x)
+            enc_out, stage_outputs = self.CT_encoder(ct)
             CT_out = self.CT_decoder(enc_out, stage_outputs)
 
-        enc_out, stage_outputs = self.PET_encoder(x)
+        enc_out, stage_outputs = self.PET_encoder(pet)
         PET_out = self.PET_decoder(enc_out, stage_outputs)
 
+        # print(f'{PET_out.shape=}')
+        # print(f'{CT_out.shape=}')
         out = torch.concat([CT_out, PET_out], dim=1)
+        # print(f'{out.shape=}')
+
         out = self.fc(out)
 
         return out
