@@ -7,12 +7,12 @@ try:  # SciPy >= 0.19
 except ImportError:
     from scipy.misc import comb
 
+import torch
 
 def bernstein_poly(i, n, t):
     """
      The Bernstein polynomial of n, i as a function of t
     """
-
     return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
 
 
@@ -29,15 +29,16 @@ def bezier_curve(points, nTimes=1000):
     """
 
     nPoints = len(points)
-    xPoints = np.array([p[0] for p in points])
-    yPoints = np.array([p[1] for p in points])
+    xPoints = np.array([p[0] for p in points]) # xPoints.shape=(4,)
+    yPoints = np.array([p[1] for p in points]) # yPoints.shape=(4,)
 
     t = np.linspace(0.0, 1.0, nTimes)
 
-    polynomial_array = np.array([ bernstein_poly(i, nPoints-1, t) for i in range(0, nPoints)   ])
+    # polynomial_array.shape=(4, 100000)
+    polynomial_array = np.array([ bernstein_poly(i, nPoints-1, t) for i in range(0, nPoints)   ])  
     
-    xvals = np.dot(xPoints, polynomial_array)
-    yvals = np.dot(yPoints, polynomial_array)
+    xvals = np.dot(xPoints, polynomial_array) # xvals.shape=(100000,)
+    yvals = np.dot(yPoints, polynomial_array) # yvals.shape=(100000,)
 
     return xvals, yvals
 
@@ -96,6 +97,7 @@ def nonlinear_transformation(x, prob=0.5, normalisation="z-score"):
         xvals = np.sort(xvals)
     else:
         xvals, yvals = np.sort(xvals), np.sort(yvals)
+
     nonlinear_x = np.interp(x, xvals, yvals)
     return nonlinear_x
 
@@ -263,3 +265,25 @@ def generate_pair(img, batch_size, config, status="test"):
             x[n], y[n] = generate_single_pair(y[n], config=config)
         
         yield (x, y)
+
+def get_pair(img, batch_size, config, status="test"):
+    """
+    img: Images, shape (bs; channel; z; y; x)
+    """
+    img_rows, img_cols, img_deps = img.shape[2], img.shape[3], img.shape[4]
+    index = [i for i in range(img.shape[0])]
+    y = img[index[:batch_size]]
+    x = copy.deepcopy(y)
+    # print(type(x), x.shape) <class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 1, 347, 347, 232])
+    # print(type(x), type(y)) <class 'monai.data.meta_tensor.MetaTensor'> <class 'monai.data.meta_tensor.MetaTensor'>
+    # print(f'{batch_size=}')
+    # print(type(x[0]), x.shape) #<class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 1, 347, 347, 232])
+
+    # y = torch.Tensor(y)
+    # x = torch.Tensor(x)
+    for n in range(batch_size):
+        # apply augmentations
+        # print(type(y[n]), y[n].shape) # <class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 345, 345, 284])
+        x[n], y[n] = generate_single_pair(y[n], config=config)
+    
+    return (x, y)
