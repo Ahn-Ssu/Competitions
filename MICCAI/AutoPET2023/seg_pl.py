@@ -20,7 +20,7 @@ from monai.data.utils import decollate_batch
 from monai.inferers import sliding_window_inference
 from monai.transforms import AsDiscrete, Compose, Activations, EnsureType
 
-class LightningRunner(pl.LightningModule):
+class Segmentation_network(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
         self.save_hyperparameters()

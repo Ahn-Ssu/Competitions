@@ -46,7 +46,7 @@ def run():
 
     from dataloader import KFold_pl_DataModule
     from model import unet_baseline, late_fusion, tail_fusion
-    from seg_lightning import LightningRunner
+    from seg_pl import Segmentation_network
 
     from monai.networks.nets import BasicUNet, SwinUNETR
 
@@ -182,9 +182,7 @@ def run():
         
         print(model)
         
-        pl_runner = LightningRunner(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
-        
-
+        pl_runner = Segmentation_network(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
         
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
