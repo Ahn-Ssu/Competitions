@@ -17,7 +17,7 @@ from modelgenesis_utils import get_pair
 from monai.losses.ssim_loss import SSIMLoss
 
 
-class LightningRunner(pl.LightningModule):
+class Modelgenesis_network(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -34,8 +34,8 @@ class LightningRunner(pl.LightningModule):
         return [optimizer], [scheduler]
     
     def training_step(self, batch, **kwargs: Any) -> STEP_OUTPUT:
-        y = batch 
-        x, y = get_pair(img=y, batch_size=self.args.batch_size,
+        ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
+        x, y = get_pair(img=ct, batch_size=self.args.batch_size,
                         config=self.args.genesis_args)
         
         y_hat = self.model(x)
@@ -55,10 +55,9 @@ class LightningRunner(pl.LightningModule):
         self.loss_log.clear()
     
     def _shared_eval_step(self, batch, batch_idx):
-        y = batch 
-        x, y = get_pair(img=y, batch_size=self.args.batch_size,
+        ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
+        x, y = get_pair(img=ct, batch_size=self.args.batch_size,
                         config=self.args.genesis_args)
-        
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
         self.loss_log.append(loss.item())
