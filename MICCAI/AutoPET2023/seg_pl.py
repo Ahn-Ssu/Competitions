@@ -23,7 +23,7 @@ from monai.transforms import AsDiscrete, Compose, Activations, EnsureType
 class Segmentation_network(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['network'])
         
         self.model = network
         self.args = args
