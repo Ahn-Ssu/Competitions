@@ -13,6 +13,7 @@ def bernstein_poly(i, n, t):
     """
      The Bernstein polynomial of n, i as a function of t
     """
+
     return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
 
 
@@ -56,8 +57,8 @@ def random_flip_all_axes(x, y, prob=0.5):
     cnt = 3
     while random.random() < prob and cnt > 0:
         degree = random.choice([-1, -2, -3])
-        x = np.flip(x, axis=degree)
-        y = np.flip(y, axis=degree)
+        x = torch.flip(x, dims=(degree,))
+        y = torch.flip(y, dims=(degree,))
         cnt = cnt - 1
 
     return x, y
@@ -97,8 +98,11 @@ def nonlinear_transformation(x, prob=0.5, normalisation="z-score"):
         xvals = np.sort(xvals)
     else:
         xvals, yvals = np.sort(xvals), np.sort(yvals)
-
     nonlinear_x = np.interp(x, xvals, yvals)
+
+    nonlinear_x = torch.from_numpy(nonlinear_x)
+    # print(f'nonlinear_transformation {nonlinear_x.requires_grad=}')
+
     return nonlinear_x
 
 
@@ -113,8 +117,10 @@ def local_pixel_shuffling(x, prob=0.5):
     Returns:
     - local_shuffling_x: transformed image of same shape as x
     """
-    image_temp = copy.deepcopy(x)
-    orig_image = copy.deepcopy(x)
+    image_temp = torch.clone(x).detach()
+    orig_image = torch.clone(x).detach()
+    # print(f'local_pixel_shuffling {image_temp.requires_grad=}')
+    # print(f'local_pixel_shuffling {orig_image.requires_grad=}')
     channels, img_rows, img_cols, img_deps = x.shape
     num_block = 10000
     for i in range(channels):
@@ -131,8 +137,9 @@ def local_pixel_shuffling(x, prob=0.5):
                                 noise_y:noise_y+block_noise_size_y, 
                                 noise_z:noise_z+block_noise_size_z,
                             ]
-            window = window.flatten()
+            window = window.flatten().cpu().detach().numpy()
             np.random.shuffle(window)
+            window = torch.from_numpy(window).to(orig_image.device)
             window = window.reshape((block_noise_size_x, 
                                     block_noise_size_y, 
                                     block_noise_size_z))
@@ -140,7 +147,7 @@ def local_pixel_shuffling(x, prob=0.5):
                         noise_y:noise_y+block_noise_size_y, 
                         noise_z:noise_z+block_noise_size_z] = window
     local_shuffling_x = image_temp
-
+    # print(f'local_pixel_shuffling {local_shuffling_x.requires_grad=}')
     return local_shuffling_x
 
 
@@ -165,10 +172,14 @@ def image_in_painting(x):
         noise_z = random.randint(3, img_deps-block_noise_size_z-3)
         x[noise_x:noise_x+block_noise_size_x, 
           noise_y:noise_y+block_noise_size_y, 
-          noise_z:noise_z+block_noise_size_z] = np.random.rand(block_noise_size_x, 
+          noise_z:noise_z+block_noise_size_z] = torch.rand([block_noise_size_x, 
                                                                block_noise_size_y, 
-                                                               block_noise_size_z, ) * 1.0
+                                                               block_noise_size_z,]) * 1.0
+        
+        
         cnt -= 1
+    # print(f'image_in_painting {x.requires_grad=}')
+    
     return x
 
 
@@ -183,8 +194,8 @@ def image_out_painting(x):
     - x: transformed image of same shape as x
     """
     img_rows, img_cols, img_deps = x.shape
-    image_temp = copy.deepcopy(x)
-    x = np.random.rand(*x.shape) * 1.0
+    image_temp = torch.clone(x).detach()
+    x = torch.rand(*x.shape) * 1.0
     block_noise_size_x = img_rows - random.randint(3*img_rows//7, 4*img_rows//7)
     block_noise_size_y = img_cols - random.randint(3*img_cols//7, 4*img_cols//7)
     block_noise_size_z = img_deps - random.randint(3*img_deps//7, 4*img_deps//7)
@@ -210,6 +221,8 @@ def image_out_painting(x):
                                                            noise_y:noise_y+block_noise_size_y, 
                                                            noise_z:noise_z+block_noise_size_z]
         cnt -= 1
+    # print(f'image_out_painting {x.requires_grad=}')
+    
     return x
                 
 
@@ -225,7 +238,7 @@ def generate_single_pair(y, config):
     - y: original 3D image. Shape: channel dimension, width, height, depth.
     """
     # Autoencoder
-    x = copy.deepcopy(y)
+    x = torch.clone(y).detach()
     
     # Flip
     x, y = random_flip_all_axes(x, y, config.flip_rate)
@@ -234,7 +247,7 @@ def generate_single_pair(y, config):
     x = local_pixel_shuffling(x, prob=config.local_rate)
     
     # Apply non-Linear transformation with an assigned probability
-    x = nonlinear_transformation(x, config.nonlinear_rate)
+    x = nonlinear_transformation(x, config.nonlinear_rate, normalisation=config.norm_type)
     
     # Inpainting & Outpainting
     channels = x.shape[0]
@@ -259,7 +272,7 @@ def generate_pair(img, batch_size, config, status="test"):
         index = [i for i in range(img.shape[0])]
         random.shuffle(index)
         y = img[index[:batch_size]]
-        x = copy.deepcopy(y)
+        x = torch.clone(y).detach()
         for n in range(batch_size):
             # apply augmentations
             x[n], y[n] = generate_single_pair(y[n], config=config)
@@ -270,10 +283,11 @@ def get_pair(img, batch_size, config, status="test"):
     """
     img: Images, shape (bs; channel; z; y; x)
     """
+    import torch
     img_rows, img_cols, img_deps = img.shape[2], img.shape[3], img.shape[4]
     index = [i for i in range(img.shape[0])]
     y = img[index[:batch_size]]
-    x = copy.deepcopy(y)
+    x = torch.clone(y).detach()
     # print(type(x), x.shape) <class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 1, 347, 347, 232])
     # print(type(x), type(y)) <class 'monai.data.meta_tensor.MetaTensor'> <class 'monai.data.meta_tensor.MetaTensor'>
     # print(f'{batch_size=}')
@@ -281,6 +295,7 @@ def get_pair(img, batch_size, config, status="test"):
 
     # y = torch.Tensor(y)
     # x = torch.Tensor(x)
+
     for n in range(batch_size):
         # apply augmentations
         # print(type(y[n]), y[n].shape) # <class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 345, 345, 284])

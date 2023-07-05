@@ -20,10 +20,10 @@ from monai.data.utils import decollate_batch
 from monai.inferers import sliding_window_inference
 from monai.transforms import AsDiscrete, Compose, Activations, EnsureType
 
-class LightningRunner(pl.LightningModule):
+class Segmentation_network(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['network'])
         
         self.model = network
         self.args = args
@@ -93,7 +93,7 @@ class LightningRunner(pl.LightningModule):
         y_hat = sliding_window_inference(
                                     inputs=image,
                                     roi_size= (self.args.img_size,self.args.img_size,self.args.img_size), # (128, 128, 128)
-                                    sw_batch_size=8, # number of the multiprocessor
+                                    sw_batch_size=4, # number of the multiprocessor
                                     predictor= self.model,
                                     overlap=0.5,
                                     mode= "constant" # GAUSSIAN = "gaussian" 

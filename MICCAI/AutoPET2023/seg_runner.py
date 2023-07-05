@@ -46,7 +46,7 @@ def run():
 
     from dataloader import KFold_pl_DataModule
     from model import unet_baseline, late_fusion, tail_fusion
-    from lightning import LightningRunner
+    from seg_pl import Segmentation_network
 
     from monai.networks.nets import BasicUNet, SwinUNETR
 
@@ -55,7 +55,7 @@ def run():
     args.img_size = 128
     args.batch_size = 1
     args.epoch = 200
-    args.init_lr = 1e-6
+    args.init_lr = 1e-4
     args.weight_decay = 0.05
 
     args.seed = 41
@@ -69,7 +69,7 @@ def run():
         EnsureTyped(keys=all_key, track_meta=False),
         Orientationd(keys=all_key, axcodes='RAS'),
         ScaleIntensityRanged(keys='ct',
-                                 a_min=-100, a_max=400,
+                                 a_min=-1000, a_max=1000,
                                  b_min=0, b_max=1, clip=True),
         ScaleIntensityRanged(keys='pet',
                                 a_min=0, a_max=40,
@@ -84,7 +84,7 @@ def run():
             EnsureTyped(keys=all_key, track_meta=False), # for training track_meta=False, monai.data.set_track_meta(false)
             Orientationd(keys=all_key, axcodes='RAS'),
             ScaleIntensityRanged(keys='ct',
-                                 a_min=-100, a_max=400,
+                                 a_min=-1000, a_max=1000,
                                  b_min=0, b_max=1, clip=True),
             ScaleIntensityRanged(keys='pet',
                                  a_min=0, a_max=40,
@@ -154,22 +154,23 @@ def run():
         #                     dropout_p=0.
         #                 )
 
-        # model = late_fusion.UNet_lateF(
-        #                     input_dim=3,
-        #                     out_dim=2,
-        #                     hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
-        #                     spatial_dim=3,
-        #                     dropout_p=0.
-        #                 )
-        
-        model = tail_fusion.UNet_tailF(
+        model = late_fusion.UNet_lateF(
                             input_dim=3,
                             out_dim=2,
                             hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
                             spatial_dim=3,
-                            dropout_p=0.
-                            use_MS=True
-            )
+                            dropout_p=0.,
+                            use_MS=False
+                        )
+        
+        # model = tail_fusion.UNet_tailF(
+        #                     input_dim=3,
+        #                     out_dim=2,
+        #                     hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
+        #                     spatial_dim=3,
+        #                     dropout_p=0.,
+        #                     use_MS=True
+        #     )
         
         # model = SwinUNETR(
         #     img_size=128,
@@ -181,9 +182,7 @@ def run():
         
         print(model)
         
-        pl_runner = LightningRunner(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
-        
-
+        pl_runner = Segmentation_network(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
         
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
@@ -199,7 +198,7 @@ def run():
                             save_dir='.',
                             # version='LEARNING CHECK',
                             # version=f'IntensityRange/{_day}/[{fold_idx+1} Fold] Aug(offset=0.01), SUV(0,40) || CFG == -m UNet_lateF(16-256) AdamP -lr {args.init_lr} -img_sz {args.img_size}] bz {args.batch_size} x 2GPU(2,3)'
-                            version=f'IntensityRange/{_day}/CT=(-100, 400), PET=(0, 40) || UNet_tailF(16,256) w He+MS - GPU devices[2,3]'
+                            version=f'IntensityRange/{_day}/CT=(-1000, 1000), PET=(0, 40) || UNet_lateF(16,256) w He+MS - GPU devices[2,3]'
                         )
         
         trainer = Trainer(
