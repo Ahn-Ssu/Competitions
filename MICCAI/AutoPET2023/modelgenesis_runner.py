@@ -1,6 +1,7 @@
 
 def run():
     import os
+    os.environ["CUDA_VISIBLE_DEVICES"]= '2,3'
     from datetime import date, datetime, timezone, timedelta
 
     import numpy as np
@@ -14,6 +15,7 @@ def run():
     from pytorch_lightning.strategies.ddp import DDPStrategy
     from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, LearningRateFinder
     from pytorch_lightning.loggers import TensorBoardLogger
+    from pytorch_lightning.profilers import PyTorchProfiler
 
     from monai.transforms import (
                             Compose,
@@ -53,7 +55,7 @@ def run():
     args = EasyDict()
 
     args.img_size = 128
-    args.batch_size = 1
+    args.batch_size = 4
     args.epoch = 1000
     args.init_lr = 1e-1
     args.weight_decay = 0.05
@@ -93,7 +95,7 @@ def run():
     )
     # set_track_meta(False)
 
-    num_split = 10 # training : validation = 9 : 1 
+    num_split = 2 # training : validation = 9 : 1 
     KST = timezone(timedelta(hours=9))
     start = datetime.now(KST)
     _day = str(start)[:10]
@@ -121,27 +123,6 @@ def run():
                             dropout_p=0.
                         )
 
-        # model = late_fusion.UNet_lateF(
-        #                     input_dim=3,
-        #                     out_dim=2,
-        #                     hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
-        #                     spatial_dim=3,
-        #                     dropout_p=0.,
-        #                     use_MS=False
-        #                 )
-        
-        # model = tail_fusion.UNet_tailF(
-        #                     input_dim=3,
-        #                     out_dim=2,
-        #                     hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
-        #                     spatial_dim=3,
-        #                     dropout_p=0.,
-        #                     use_MS=True
-        #     )
-        
-
-        
-        print(model)
         
         pl_runner = Modelgenesis_network(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
         
@@ -162,7 +143,8 @@ def run():
                             # version='LEARNING CHECK',
                             version=f'Modelgenesis/{_day}/CT=(-1000, 1000) || UNet(32,512) w He - GPU devices[0,1]'
                         )
-        
+        profiler = PyTorchProfiler()
+
         trainer = Trainer(
                     max_epochs=args.epoch,
                     devices=[0,1],
@@ -170,13 +152,13 @@ def run():
                     # precision='16-mixed',
                     # strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     callbacks=[lr_monitor, checkpoint_callback],
-                    # check_val_every_n_epoch=2,
-                    check_val_every_n_epoch=3,
+                    check_val_every_n_epoch=1,
                     # log_every_n_steps=1,
                     logger=logger,
                     # auto_lr_find=True
                     # accumulate_grad_batches=2
-                    # profiler='simple', #advanced
+                    profiler='advanced', #advanced
+                    # profiler=profiler
                 )
         
 

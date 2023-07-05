@@ -20,7 +20,7 @@ from monai.losses.ssim_loss import SSIMLoss
 class Modelgenesis_network(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['network'])
         
         self.model = network
         self.args = args
@@ -56,10 +56,8 @@ class Modelgenesis_network(pl.LightningModule):
     
     def _shared_eval_step(self, batch, batch_idx):
         ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
-        x, y = get_pair(img=ct, batch_size=self.args.batch_size,
-                        config=self.args.genesis_args)
-        y_hat = self.model(x)
-        loss = self.loss(y_hat, y)
+        y_hat = self.model(ct)
+        loss = self.loss(y_hat, ct)
         self.loss_log.append(loss.item())
         
 

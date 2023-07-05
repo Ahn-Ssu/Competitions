@@ -101,6 +101,7 @@ def nonlinear_transformation(x, prob=0.5, normalisation="z-score"):
     nonlinear_x = np.interp(x, xvals, yvals)
 
     nonlinear_x = torch.from_numpy(nonlinear_x)
+    # print(f'nonlinear_transformation {nonlinear_x.requires_grad=}')
 
     return nonlinear_x
 
@@ -118,6 +119,8 @@ def local_pixel_shuffling(x, prob=0.5):
     """
     image_temp = torch.clone(x).detach()
     orig_image = torch.clone(x).detach()
+    # print(f'local_pixel_shuffling {image_temp.requires_grad=}')
+    # print(f'local_pixel_shuffling {orig_image.requires_grad=}')
     channels, img_rows, img_cols, img_deps = x.shape
     num_block = 10000
     for i in range(channels):
@@ -144,7 +147,7 @@ def local_pixel_shuffling(x, prob=0.5):
                         noise_y:noise_y+block_noise_size_y, 
                         noise_z:noise_z+block_noise_size_z] = window
     local_shuffling_x = image_temp
-
+    # print(f'local_pixel_shuffling {local_shuffling_x.requires_grad=}')
     return local_shuffling_x
 
 
@@ -175,6 +178,8 @@ def image_in_painting(x):
         
         
         cnt -= 1
+    # print(f'image_in_painting {x.requires_grad=}')
+    
     return x
 
 
@@ -216,6 +221,8 @@ def image_out_painting(x):
                                                            noise_y:noise_y+block_noise_size_y, 
                                                            noise_z:noise_z+block_noise_size_z]
         cnt -= 1
+    # print(f'image_out_painting {x.requires_grad=}')
+    
     return x
                 
 
