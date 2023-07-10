@@ -30,7 +30,7 @@ class Modelgenesis_network(pl.LightningModule):
     
     def configure_optimizers(self) -> Any:
         optimizer = AdamP(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=self.args.weight_decay)
-        scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=self.args.epoch, max_lr=self.args.init_lr, min_lr=self.args.init_lr*0.001, warmup_steps=self.args.epoch//20, gamma=0.8)
+        scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=self.args.epoch, max_lr=self.args.init_lr, min_lr=self.args.init_lr*0.0001, warmup_steps=self.args.epoch//20, gamma=0.8)
         return [optimizer], [scheduler]
     
     def training_step(self, batch, **kwargs: Any) -> STEP_OUTPUT:

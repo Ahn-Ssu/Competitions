@@ -122,7 +122,6 @@ class decoder(nn.Module):
         super(decoder, self).__init__()
 
         upconv_class = nn.ConvTranspose3d if spatial_dim == 3 else nn.ConvTranspose2d
-        projection = nn.Conv3d if spatial_dim == 3 else nn.Conv2d
 
         self.upconv1 = upconv_class(in_channels=hidden_dims[4], out_channels=hidden_dims[3], kernel_size=2, stride=2)
         self.layer1 = nn.Sequential(
@@ -148,7 +147,7 @@ class decoder(nn.Module):
             ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
-        self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
+        
     
     def forward(self, h, stage_outputs):
         h = self.upconv1(h)
@@ -167,12 +166,29 @@ class decoder(nn.Module):
         h = torch.concat([h, stage_outputs['stage1']], dim=1) 
         h = self.layer4(h)
 
-        h = self.fc(h)
-
         return h
     
 
 class UNet(nn.Module):
+    def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0) -> None:
+        super(UNet, self).__init__()
+        assert spatial_dim in [2,3] and hidden_dims
+        projection = nn.Conv3d if spatial_dim == 3 else nn.Conv2d
+
+        self.encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+        self.decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+        self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
+
+    
+    def forward(self, x):
+
+        enc_out, stage_outputs = self.encoder(x)
+        out = self.decoder(enc_out, stage_outputs)
+        out = self.fc(out)
+
+        return out
+
+class UNet_woFC(nn.Module):
     def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0) -> None:
         super(UNet, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims

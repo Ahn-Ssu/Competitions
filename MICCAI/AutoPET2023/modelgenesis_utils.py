@@ -8,6 +8,7 @@ except ImportError:
     from scipy.misc import comb
 
 import torch
+from monai.transforms import RandGaussianNoise
 
 def bernstein_poly(i, n, t):
     """
@@ -150,6 +151,22 @@ def local_pixel_shuffling(x, prob=0.5):
     # print(f'local_pixel_shuffling {local_shuffling_x.requires_grad=}')
     return local_shuffling_x
 
+def added_gaussian_noise(x, noise_rate):
+
+    if random.random() > noise_rate:
+        return x
+    
+    rand_mean = random.uniform(0.0, 0.1) if random.random() > 0.5 else 0 
+    rand_std = random.uniform(0.001, 0.1)
+
+    noise_maker = RandGaussianNoise(prob=1, mean=rand_mean, std=rand_std)
+    noise_maker = torch.clamp(noise_maker, min=0, max=1)
+
+    noised_x = noise_maker(x)
+
+    return noised_x 
+
+
 
 def image_in_painting(x):
     """
@@ -247,7 +264,11 @@ def generate_single_pair(y, config):
     x = local_pixel_shuffling(x, prob=config.local_rate)
     
     # Apply non-Linear transformation with an assigned probability
-    x = nonlinear_transformation(x, config.nonlinear_rate, normalisation=config.norm_type)
+    if config.modality == 'CT':
+        x = nonlinear_transformation(x, config.nonlinear_rate, normalisation=config.norm_type)
+    elif config.modality == 'PET':
+        x = added_gaussian_noise(x, prob=config.noise_rate)
+
     
     # Inpainting & Outpainting
     channels = x.shape[0]
@@ -284,21 +305,12 @@ def get_pair(img, batch_size, config, status="test"):
     img: Images, shape (bs; channel; z; y; x)
     """
     import torch
-    img_rows, img_cols, img_deps = img.shape[2], img.shape[3], img.shape[4]
     index = [i for i in range(img.shape[0])]
     y = img[index[:batch_size]]
     x = torch.clone(y).detach()
-    # print(type(x), x.shape) <class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 1, 347, 347, 232])
-    # print(type(x), type(y)) <class 'monai.data.meta_tensor.MetaTensor'> <class 'monai.data.meta_tensor.MetaTensor'>
-    # print(f'{batch_size=}')
-    # print(type(x[0]), x.shape) #<class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 1, 347, 347, 232])
-
-    # y = torch.Tensor(y)
-    # x = torch.Tensor(x)
 
     for n in range(batch_size):
         # apply augmentations
-        # print(type(y[n]), y[n].shape) # <class 'monai.data.meta_tensor.MetaTensor'> torch.Size([1, 345, 345, 284])
         x[n], y[n] = generate_single_pair(y[n], config=config)
     
     return (x, y)

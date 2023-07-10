@@ -15,7 +15,6 @@ class PETCT_dataset(Dataset):
         self.image_path = image_path
         self.diagnosis = diagnosis
         self.transform = transform
-        self.negative_val = negative_val[0] if negative_val else negative_val
 
     def __getitem__(self, index):
         return self.get_SCANS(self.image_path[index], self.diagnosis[index])
@@ -37,10 +36,18 @@ class PETCT_dataset(Dataset):
         }
 
         # data_d = LoadImaged(keys=['image','label'])(path_d)
-        data_d = self.transform(path_d)
+        try:
+            data_d = self.transform(path_d)
+        except:
+            print("RuntimeError: applying transform <monai.transforms.io.dictionary.LoadImaged object at 0x7fd968ab4310>")
+            print("same err occur")
+            print(path_d)
+            exit()
 
         if isinstance(data_d, list):
-            data_d = data_d[0]
+                data_d = data_d[0]
+            
+                
 
         # if data_d["label"].shape[-1] > 500:
         #     print(path)
@@ -116,7 +123,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
                           
     def val_dataloader(self):
         return DataLoader(self.val_data,
-                          batch_size=1,
+                          batch_size=1, # self.hparams.batch_size, # when PT -> bz else 1 
                           shuffle=False,
                           num_workers=self.hparams.num_workers,
                           persistent_workers=self.hparams.persistent_workers,

@@ -4,7 +4,7 @@
 import torch
 import torchvision.models as models
 
-from model import unet_baseline
+from model import unet_baseline, late_fusion
 from thop import profile
 
 from monai.networks.nets import SwinUNETR
@@ -20,12 +20,13 @@ def model_size_info(model, input):
     print()
 input = torch.rand(1, 2, 128, 128, 128)
 
-model = unet_baseline.UNet(
+model = late_fusion.UNet_lateF(
                             spatial_dim=3,
                             input_dim=2,
                             out_dim=2,
-                            hidden_dims=[32,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
-                            dropout_p=0.
+                            hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
+                            dropout_p=0.,
+                            use_MS=True
                         )
 
 model_size_info(model, input)

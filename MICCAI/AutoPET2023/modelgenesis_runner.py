@@ -2,62 +2,38 @@
 def run():
     import os
     os.environ["CUDA_VISIBLE_DEVICES"]= '2,3'
-    from datetime import date, datetime, timezone, timedelta
+    from datetime import datetime, timezone, timedelta
 
-    import numpy as np
-    import pandas as pd 
     from easydict import EasyDict
-
-    import torch.storage
 
     from lightning_fabric.utilities import seed
     from pytorch_lightning import Trainer
     from pytorch_lightning.strategies.ddp import DDPStrategy
-    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, LearningRateFinder
+    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
     from pytorch_lightning.loggers import TensorBoardLogger
     from pytorch_lightning.profilers import PyTorchProfiler
 
     from monai.transforms import (
                             Compose,
-                            OneOf,
 
                             LoadImaged,
                             EnsureTyped,
                             ScaleIntensityRanged,
                             Orientationd,
                             CropForegroundd, 
-                            RandCropByPosNegLabeld,
                             RandSpatialCropd,
-
-                            RandFlipd,
-                            RandRotated,
-                            RandZoomd,
-
-                            RandShiftIntensityd,
-                            RandScaleIntensityd,
-                            RandAdjustContrastd,
-                            RandGaussianNoised,
-                            RandGaussianSmoothd,
-                            RandGaussianSharpend,
-                            HistogramNormalized,
-
-                            RandCoarseDropoutd,
-                            RandCoarseShuffled
                         )
-    from monai.data import set_track_meta
 
     from dataloader import KFold_pl_DataModule
     from model import unet_baseline, late_fusion, tail_fusion
     from modelgenesis_pl import Modelgenesis_network
-
-    from monai.networks.nets import BasicUNet, SwinUNETR
 
     args = EasyDict()
 
     args.img_size = 128
     args.batch_size = 4
     args.epoch = 1000
-    args.init_lr = 1e-1
+    args.init_lr = 1e-2
     args.weight_decay = 0.05
 
     args.genesis_args = EasyDict()
@@ -66,6 +42,10 @@ def run():
     args.genesis_args.paint_rate = 0.9      # prob of (in/out) painting 
     args.genesis_args.outpaint_rate = 0.8   # prob of outer painting
     args.genesis_args.inpaint_rate = 0.2    # prob of inner painting
+
+    ## added to 
+    args.genesis_args.noise_rate = 0.9      # ADDED - prob of noising 
+    args.genesis_args.modality = "CT" # "PET"
 
     # for model genesis, basic augmentation
     args.genesis_args.rotation_rate = 0.0
@@ -93,9 +73,8 @@ def run():
         RandSpatialCropd(keys=all_key, roi_size=[args.img_size,args.img_size,args.img_size], random_size=False)
     ]
     )
-    # set_track_meta(False)
 
-    num_split = 2 # training : validation = 9 : 1 
+    num_split = 10 # training : validation = 9 : 1 
     KST = timezone(timedelta(hours=9))
     start = datetime.now(KST)
     _day = str(start)[:10]
@@ -141,7 +120,7 @@ def run():
         logger = TensorBoardLogger(
                             save_dir='.',
                             # version='LEARNING CHECK',
-                            version=f'Modelgenesis/{_day}/CT=(-1000, 1000) || UNet(32,512) w He - GPU devices[0,1]'
+                            version=f'Modelgenesis/{_day}/CT=(-1000, 1000) || UNet(32,32,256) w He - GPU devices[0,1]'
                         )
         profiler = PyTorchProfiler()
 
@@ -152,12 +131,12 @@ def run():
                     # precision='16-mixed',
                     # strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     callbacks=[lr_monitor, checkpoint_callback],
-                    check_val_every_n_epoch=1,
+                    check_val_every_n_epoch=3,
                     # log_every_n_steps=1,
                     logger=logger,
                     # auto_lr_find=True
                     # accumulate_grad_batches=2
-                    profiler='advanced', #advanced
+                    # profiler='advanced', #advanced
                     # profiler=profiler
                 )
         
