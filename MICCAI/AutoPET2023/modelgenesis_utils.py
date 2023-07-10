@@ -160,9 +160,10 @@ def added_gaussian_noise(x, prob):
     rand_std = random.uniform(0.001, 0.1)
 
     noise_maker = RandGaussianNoise(prob=1, mean=rand_mean, std=rand_std)
-    noise_maker = torch.clamp(noise_maker, min=0, max=1)
-
     noised_x = noise_maker(x)
+
+    noised_x = torch.clamp(noised_x, min=0, max=1)
+
 
     return noised_x 
 
