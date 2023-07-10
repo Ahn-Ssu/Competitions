@@ -151,9 +151,9 @@ def local_pixel_shuffling(x, prob=0.5):
     # print(f'local_pixel_shuffling {local_shuffling_x.requires_grad=}')
     return local_shuffling_x
 
-def added_gaussian_noise(x, noise_rate):
+def added_gaussian_noise(x, prob):
 
-    if random.random() > noise_rate:
+    if random.random() > prob:
         return x
     
     rand_mean = random.uniform(0.0, 0.1) if random.random() > 0.5 else 0 
