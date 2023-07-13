@@ -30,12 +30,12 @@ class Modelgenesis_network(pl.LightningModule):
     
     def configure_optimizers(self) -> Any:
         optimizer = AdamP(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=self.args.weight_decay)
-        scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=self.args.epoch, max_lr=self.args.init_lr, min_lr=self.args.init_lr*0.0001, warmup_steps=self.args.epoch//20, gamma=0.8)
+        scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=self.args.epoch, max_lr=self.args.init_lr, min_lr=self.args.init_lr*self.args.lr_dec_rate, warmup_steps=self.args.epoch//20, gamma=0.8)
         return [optimizer], [scheduler]
     
     def training_step(self, batch, **kwargs: Any) -> STEP_OUTPUT:
         ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
-        x, y = get_pair(img=ct, batch_size=self.args.batch_size,
+        x, y = get_pair(img=pet, batch_size=self.args.batch_size,
                         config=self.args.genesis_args)
         
         y_hat = self.model(x)
@@ -56,8 +56,8 @@ class Modelgenesis_network(pl.LightningModule):
     
     def _shared_eval_step(self, batch, batch_idx):
         ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
-        y_hat = self.model(ct)
-        loss = self.loss(y_hat, ct)
+        y_hat = self.model(pet)
+        loss = self.loss(y_hat, pet)
         self.loss_log.append(loss.item())
         
 

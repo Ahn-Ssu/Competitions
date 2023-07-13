@@ -1,18 +1,15 @@
 
+
 def run():
     import os
-    from datetime import date, datetime, timezone, timedelta
-
-    import numpy as np
-    import pandas as pd 
+    os.environ["CUDA_VISIBLE_DEVICES"]= '2,3' # '0,1'
     from easydict import EasyDict
-
-    import torch.storage
+    from datetime import datetime, timezone, timedelta
 
     from lightning_fabric.utilities import seed
     from pytorch_lightning import Trainer
     from pytorch_lightning.strategies.ddp import DDPStrategy
-    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, LearningRateFinder
+    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
     from pytorch_lightning.loggers import TensorBoardLogger
 
     from monai.transforms import (
@@ -42,21 +39,33 @@ def run():
                             RandCoarseDropoutd,
                             RandCoarseShuffled
                         )
-    from monai.data import set_track_meta
 
     from dataloader import KFold_pl_DataModule
-    from model import unet_baseline, late_fusion, tail_fusion
+    from model import unet_baseline, late_fusion, middle_fusion
     from seg_pl import Segmentation_network
 
-    from monai.networks.nets import BasicUNet, SwinUNETR
+    from monai.networks.nets import basic_unet
 
     args = EasyDict()
 
+    # training cfg
     args.img_size = 128
     args.batch_size = 1
-    args.epoch = 200
+    args.epoch = 300
     args.init_lr = 1e-4
+    args.lr_dec_rate = 0.001 # 기존에 쓰던건 0.001로 많이 내려가게 했었음 
     args.weight_decay = 0.05
+
+    # preprocesing cfg
+    args.CT_min = -600
+    args.CT_max = 400
+    args.PET_min = 0
+    args.PET_max = 40 
+
+    # model cfg
+    args.hidden_dims = [32,32,64,128,256]
+    args.dropout_p = 0.
+    args.use_MS = False
 
     args.seed = 41
     seed.seed_everything(args.seed)
@@ -69,10 +78,10 @@ def run():
         EnsureTyped(keys=all_key, track_meta=False),
         Orientationd(keys=all_key, axcodes='RAS'),
         ScaleIntensityRanged(keys='ct',
-                                 a_min=-1000, a_max=1000,
+                                 a_min=args.CT_min, a_max=args.CT_max,
                                  b_min=0, b_max=1, clip=True),
         ScaleIntensityRanged(keys='pet',
-                                a_min=0, a_max=40,
+                                a_min=args.PET_min, a_max=args.PET_max,
                                 b_min=0, b_max=1, clip=True),
 
         CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
@@ -84,10 +93,10 @@ def run():
             EnsureTyped(keys=all_key, track_meta=False), # for training track_meta=False, monai.data.set_track_meta(false)
             Orientationd(keys=all_key, axcodes='RAS'),
             ScaleIntensityRanged(keys='ct',
-                                 a_min=-1000, a_max=1000,
+                                 a_min=args.CT_min, a_max=args.CT_max,
                                  b_min=0, b_max=1, clip=True),
             ScaleIntensityRanged(keys='pet',
-                                 a_min=0, a_max=40,
+                                 a_min=args.PET_min, a_max=args.PET_max,
                                  b_min=0, b_max=1, clip=True),
             CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
             OneOf([
@@ -121,7 +130,7 @@ def run():
             #     RandCoarseDropoutd(keys=['pet','ct'], prob=0.2, holes=10, spatial_size=10),
             #     RandCoarseShuffled(keys=['pet','ct'], prob=0.2, holes=10, spatial_size=10)
             # ]
-            # )
+            # )000
         ]) # ㄱㅣㅈㅗㄴ [-100, 400] - [0, 30] || ㅈㅣㄱㅡㅁ ㄷㅗㄹㅇㅏㄱㅏㄴㅡㄴ ㄱㅓ -100 500, 0 100
 
     # set_track_meta(False)
@@ -146,41 +155,16 @@ def run():
                             val_transform=test_transform
                         )
 
-        # model = unet_baseline.UNet(
-        #                     input_dim=2,
-        #                     out_dim=2,
-        #                     hidden_dims=[32,64,128,256,512], # 16 32 32 64 128 is default setting of Monai
-        #                     spatial_dim=3,
-        #                     dropout_p=0.
-        #                 )
-
-        model = late_fusion.UNet_lateF(
+        model = middle_fusion.UNet_middleF(
                             input_dim=3,
                             out_dim=2,
-                            hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
+                            hidden_dims=args.hidden_dims, # 16 32 32 64 128 is default setting of Monai
                             spatial_dim=3,
-                            dropout_p=0.,
-                            use_MS=False
+                            dropout_p=args.dropout_p,
+                            use_MS=args.use_MS
                         )
         
-        # model = tail_fusion.UNet_tailF(
-        #                     input_dim=3,
-        #                     out_dim=2,
-        #                     hidden_dims=[16,32,64,128,256], # 16 32 32 64 128 is default setting of Monai
-        #                     spatial_dim=3,
-        #                     dropout_p=0.,
-        #                     use_MS=True
-        #     )
-        
-        # model = SwinUNETR(
-        #     img_size=128,
-        #     in_channels=2,
-        #     out_channels=2,
-        #     feature_size=24,
-        #     spatial_dims=3
-        # )
-        
-        print(model)
+        # print(model)
         
         pl_runner = Segmentation_network(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
         
@@ -197,13 +181,13 @@ def run():
         logger = TensorBoardLogger(
                             save_dir='.',
                             # version='LEARNING CHECK',
-                            # version=f'IntensityRange/{_day}/[{fold_idx+1} Fold] Aug(offset=0.01), SUV(0,40) || CFG == -m UNet_lateF(16-256) AdamP -lr {args.init_lr} -img_sz {args.img_size}] bz {args.batch_size} x 2GPU(2,3)'
-                            version=f'IntensityRange/{_day}/CT=(-1000, 1000), PET=(0, 40) || UNet_lateF(16,256) w He+MS - GPU devices[2,3]'
+                            version=f'1.Pooling/{_day}/Max-pooling---UNet_middleF, SELU',
+                            default_hp_metric=False
                         )
         
         trainer = Trainer(
                     max_epochs=args.epoch,
-                    devices=[2,3],
+                    devices=[0,1],
                     accelerator='gpu',
                     # precision='16-mixed',
                     strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..

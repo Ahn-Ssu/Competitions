@@ -37,7 +37,19 @@ def run():
     args.batch_size = 4
     args.epoch = 1000
     args.init_lr = 1e-2
+    args.lr_dec_rate = 0.0001 
     args.weight_decay = 0.05
+
+    # preprocesing cfg
+    args.CT_min = -600
+    args.CT_max = 400
+    args.PET_min = 0
+    args.PET_max = 40 
+
+    # model cfg
+    args.hidden_dims = [16,32,64,128,256]
+    args.dropout_p = 0.
+    args.use_MS = False
 
     args.genesis_args = EasyDict()
     args.genesis_args.nonlinear_rate = 0.9  # prob of non-linear transformation
@@ -66,10 +78,10 @@ def run():
         EnsureTyped(keys=all_key, track_meta=False),
         Orientationd(keys=all_key, axcodes='RAS'),
         ScaleIntensityRanged(keys='ct',
-                                 a_min=-1000, a_max=1000,
+                                 a_min=args.CT_min, a_max=args.CT_max,
                                  b_min=0, b_max=1, clip=True),
         ScaleIntensityRanged(keys='pet',
-                                a_min=0, a_max=40,
+                                a_min=args.PET_min, a_max=args.PET_max,
                                 b_min=0, b_max=1, clip=True),
 
         CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
@@ -100,9 +112,9 @@ def run():
         model = unet_baseline.UNet(
                             input_dim=1,
                             out_dim=1,
-                            hidden_dims=[32,64,128,256,512], # 16 32 32 64 128 is default setting of Monai
+                            hidden_dims=args.hidden_dims, # 16 32 32 64 128 is default setting of Monai
                             spatial_dim=3,
-                            dropout_p=0.
+                            dropout_p=args.dropout_p
                         )
 
         
