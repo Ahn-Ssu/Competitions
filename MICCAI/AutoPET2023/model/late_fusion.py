@@ -119,7 +119,7 @@ class decoder(nn.Module):
             ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
-        self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
+        # self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
     
     def forward(self, h, stage_outputs):
         h = self.upconv1(h)
@@ -138,19 +138,20 @@ class decoder(nn.Module):
         h = torch.concat([h, stage_outputs['stage1']], dim=1) 
         h = self.layer4(h)
 
-        h = self.fc(h)
+        # h = self.fc(h)
 
         return h
     
 
-class UNet_lateF(nn.Module):
+class UNet_tailF(nn.Module):
     def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0,
                  use_MS=False, MS_pt='/root/Competitions/MICCAI/AutoPET2023/example/Genesis_Chest_CT.pt') -> None:
-        super(UNet_lateF, self).__init__()
+        super(UNet_tailF, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
-
         self.use_MS = use_MS
-        
+        input_dim = input_dim//2
+        # hidden_dims = [dim//2 for dim in hidden_dims]
+
         if use_MS:
             from model.model_genesis_UNet import UNet3D
             from collections import OrderedDict
@@ -163,53 +164,33 @@ class UNet_lateF(nn.Module):
 
             self.CT_net = UNet3D()
             self.CT_net.load_state_dict(new_state_dict) 
-            self.delete()
-            self.PET_encoder = encoder(in_dim=input_dim//2, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
-
-            MS_hidden_dims = [64, 128, 256, 512]
-            hidden_dims[0] += MS_hidden_dims[0]
-            hidden_dims[1] += MS_hidden_dims[1]
-            hidden_dims[2] += MS_hidden_dims[2]
-            hidden_dims[3] += MS_hidden_dims[3]
-
-            self.decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
-
+            
         else:
-            self.PET_encoder = encoder(in_dim=input_dim//2, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
-            self.CT_encoder = encoder(in_dim=input_dim//2, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
-            hidden_dims = [one*2 for one in hidden_dims]
-            self.decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+            self.CT_encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+            self.CT_decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
 
-    def delete(self):
-        del self.CT_net.up_tr256
-        del self.CT_net.up_tr128
-        del self.CT_net.up_tr64
-        del self.CT_net.out_tr
-    
+        self.PET_encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+        self.PET_decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+
+        self.fc = nn.Conv3d(in_channels=hidden_dims[0]*2, out_channels=out_dim, kernel_size=1, stride=1)
+        
     def forward(self, x):
-        # split each input modality
         ct, pet = torch.chunk(x,chunks=2, dim=1)
 
-        # encoder branches
         if self.use_MS:
-            PET_enc_out, PET_stage_outputs = self.PET_encoder(pet)
-            _, CT_stage_outputs = self.CT_net(ct)
+            CT_out = self.CT_net(ct) # output dim = 64
+        else: 
+            enc_out, stage_outputs = self.CT_encoder(ct)
+            CT_out = self.CT_decoder(enc_out, stage_outputs)
 
-            stage_outputs = {}
-            for idx in range(len(CT_stage_outputs)):
-                stage_outputs[f'stage{idx+1}'] = torch.concat([PET_stage_outputs[f'stage{idx+1}'], CT_stage_outputs[f'stage{idx+1}']], dim=1)
-                        
-            out = self.decoder(PET_enc_out, stage_outputs)
-        else:
-            PET_enc_out, PET_stage_outputs = self.PET_encoder(pet)
-            CT_enc_out, CT_stage_outputs = self.PET_encoder(ct)
+        enc_out, stage_outputs = self.PET_encoder(pet)
+        PET_out = self.PET_decoder(enc_out, stage_outputs)
 
-            # process each output of the encoders to pass into the decoder 
-            enc_out = torch.concat([PET_enc_out, CT_enc_out], dim=1)
-            stage_outputs = {}
-            for idx in range(len(CT_stage_outputs)):
-                stage_outputs[f'stage{idx+1}'] = torch.concat([PET_stage_outputs[f'stage{idx+1}'], CT_stage_outputs[f'stage{idx+1}']], dim=1)
-            
-            out = self.decoder(enc_out, stage_outputs)
+        # print(f'{PET_out.shape=}')
+        # print(f'{CT_out.shape=}')
+        out = torch.concat([CT_out, PET_out], dim=1)
+        # print(f'{out.shape=}')
+
+        out = self.fc(out)
 
         return out
