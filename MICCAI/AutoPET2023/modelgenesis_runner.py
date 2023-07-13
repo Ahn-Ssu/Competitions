@@ -1,4 +1,7 @@
 
+from model import late_fusion, middle_fusion
+
+
 def run():
     import os
     os.environ["CUDA_VISIBLE_DEVICES"]= '2,3'
@@ -25,7 +28,7 @@ def run():
                         )
 
     from dataloader import KFold_pl_DataModule
-    from model import unet_baseline, late_fusion, tail_fusion
+    from model import unet_baseline
     from modelgenesis_pl import Modelgenesis_network
 
     args = EasyDict()
@@ -45,7 +48,7 @@ def run():
 
     ## added to 
     args.genesis_args.noise_rate = 0.9      # ADDED - prob of noising 
-    args.genesis_args.modality = "CT" # "PET"
+    args.genesis_args.modality = "PET" # "PET"
 
     # for model genesis, basic augmentation
     args.genesis_args.rotation_rate = 0.0
@@ -119,8 +122,9 @@ def run():
         
         logger = TensorBoardLogger(
                             save_dir='.',
+                            default_hp_metric=False,
                             # version='LEARNING CHECK',
-                            version=f'Modelgenesis/{_day}/CT=(-1000, 1000) || UNet(32,32,256) w He - GPU devices[0,1]'
+                            version=f'Modelgenesis/{_day}/PET=(0, 40) || UNet(32,512) w He - GPU devices[2,3]'
                         )
         profiler = PyTorchProfiler()
 
@@ -128,7 +132,7 @@ def run():
                     max_epochs=args.epoch,
                     devices=[0,1],
                     accelerator='gpu',
-                    # precision='16-mixed',
+                    precision='16-mixed',
                     # strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     callbacks=[lr_monitor, checkpoint_callback],
                     check_val_every_n_epoch=3,
