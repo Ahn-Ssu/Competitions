@@ -143,10 +143,10 @@ class decoder(nn.Module):
         return h
     
 
-class UNet_lateF(nn.Module):
+class UNet_middleF(nn.Module):
     def __init__(self, spatial_dim, input_dim, out_dim, hidden_dims:Union[Tuple, List], dropout_p=0.0,
                  use_MS=False, MS_pt='/root/Competitions/MICCAI/AutoPET2023/example/Genesis_Chest_CT.pt') -> None:
-        super(UNet_lateF, self).__init__()
+        super(UNet_middleF, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
 
         self.use_MS = use_MS
