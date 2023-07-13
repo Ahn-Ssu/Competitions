@@ -1,0 +1,39 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    batch_size: 4
+    epoch: 1000
+    genesis_args: &id001 !!python/object/new:easydict.EasyDict
+      dictitems:
+        flip_rate: 0.4
+        inpaint_rate: 0.2
+        local_rate: 0.5
+        modality: PET
+        noise_rate: 0.9
+        nonlinear_rate: 0.9
+        norm_type: minmax
+        outpaint_rate: 0.8
+        paint_rate: 0.9
+        rotation_rate: 0.0
+      state:
+        flip_rate: 0.4
+        inpaint_rate: 0.2
+        local_rate: 0.5
+        modality: PET
+        noise_rate: 0.9
+        nonlinear_rate: 0.9
+        norm_type: minmax
+        outpaint_rate: 0.8
+        paint_rate: 0.9
+        rotation_rate: 0.0
+    img_size: 128
+    init_lr: 0.01
+    seed: 41
+    weight_decay: 0.05
+  state:
+    batch_size: 4
+    epoch: 1000
+    genesis_args: *id001
+    img_size: 128
+    init_lr: 0.01
+    seed: 41
+    weight_decay: 0.05
