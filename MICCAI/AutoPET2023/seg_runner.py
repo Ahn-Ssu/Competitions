@@ -19,6 +19,7 @@ def run():
                             LoadImaged,
                             EnsureTyped,
                             ScaleIntensityRanged,
+                            ScaleIntensityRangePercentilesd,
                             Orientationd,
                             CropForegroundd, 
                             RandCropByPosNegLabeld,
@@ -51,7 +52,7 @@ def run():
     # training cfg
     args.img_size = 128
     args.batch_size = 1
-    args.epoch = 300
+    args.epoch = 200
     args.init_lr = 1e-4
     args.lr_dec_rate = 0.001 # 기존에 쓰던건 0.001로 많이 내려가게 했었음 
     args.weight_decay = 0.05
@@ -60,7 +61,9 @@ def run():
     args.CT_min = -600
     args.CT_max = 400
     args.PET_min = 0
-    args.PET_max = 40 
+    args.PET_max = 40
+    args.PET_lower = 0.
+    args.PET_upper = 98
 
     # model cfg
     args.hidden_dims = [32,32,64,128,256]
@@ -68,6 +71,7 @@ def run():
     args.use_MS = False
 
     args.seed = 41
+    args.server = 'mk3'
     seed.seed_everything(args.seed)
 
 
@@ -80,10 +84,12 @@ def run():
         ScaleIntensityRanged(keys='ct',
                                  a_min=args.CT_min, a_max=args.CT_max,
                                  b_min=0, b_max=1, clip=True),
-        ScaleIntensityRanged(keys='pet',
-                                a_min=args.PET_min, a_max=args.PET_max,
-                                b_min=0, b_max=1, clip=True),
-
+        # ScaleIntensityRanged(keys='pet',
+        #                         a_min=args.PET_min, a_max=args.PET_max,
+        #                         b_min=0, b_max=1, clip=True),
+        ScaleIntensityRangePercentilesd(keys='pet',
+                                        lower=args.PET_lower, upper=args.PET_upper,
+                                        b_min=0, b_max=1, clip=True),
         CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
     ]
     )
@@ -95,9 +101,12 @@ def run():
             ScaleIntensityRanged(keys='ct',
                                  a_min=args.CT_min, a_max=args.CT_max,
                                  b_min=0, b_max=1, clip=True),
-            ScaleIntensityRanged(keys='pet',
-                                 a_min=args.PET_min, a_max=args.PET_max,
-                                 b_min=0, b_max=1, clip=True),
+            # ScaleIntensityRanged(keys='pet',
+            #                      a_min=args.PET_min, a_max=args.PET_max,
+            #                      b_min=0, b_max=1, clip=True),
+            ScaleIntensityRangePercentilesd(keys='pet',
+                                        lower=args.PET_lower, upper=args.PET_upper,
+                                        b_min=0, b_max=1, clip=True),
             CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
             OneOf([
                 RandCropByPosNegLabeld(keys=all_key, label_key='label', 
@@ -164,6 +173,15 @@ def run():
                             use_MS=args.use_MS
                         )
         
+        # model = late_fusion.UNet_lateF(
+        #                     input_dim=3,
+        #                     out_dim=2,
+        #                     hidden_dims=args.hidden_dims, # 16 32 32 64 128 is default setting of Monai
+        #                     spatial_dim=3,
+        #                     dropout_p=args.dropout_p,
+        #                     use_MS=args.use_MS
+        #                 )
+        
         # print(model)
         
         pl_runner = Segmentation_network(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
@@ -181,7 +199,7 @@ def run():
         logger = TensorBoardLogger(
                             save_dir='.',
                             # version='LEARNING CHECK',
-                            version=f'1.Pooling/{_day}/Max-pooling---UNet_middleF, SELU',
+                            version=f'2.Intensity/{_day}/PET)Percentiles, middle fusion',
                             default_hp_metric=False
                         )
         
