@@ -1,0 +1,36 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    CT_max: 400
+    CT_min: -600
+    PET_max: 40
+    PET_min: 0
+    batch_size: 1
+    dropout_p: 0.0
+    epoch: 300
+    hidden_dims: &id001
+    - 32
+    - 32
+    - 64
+    - 128
+    - 256
+    img_size: 128
+    init_lr: 0.0001
+    lr_dec_rate: 0.001
+    seed: 41
+    use_MS: false
+    weight_decay: 0.05
+  state:
+    CT_max: 400
+    CT_min: -600
+    PET_max: 40
+    PET_min: 0
+    batch_size: 1
+    dropout_p: 0.0
+    epoch: 300
+    hidden_dims: *id001
+    img_size: 128
+    init_lr: 0.0001
+    lr_dec_rate: 0.001
+    seed: 41
+    use_MS: false
+    weight_decay: 0.05
