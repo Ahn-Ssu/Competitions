@@ -17,14 +17,14 @@ class ConvBlock(nn.Module):
             self.norm = nn.InstanceNorm2d(num_features=out_dim, affine=True)
             self.drop = nn.Dropout2d(p=drop_p) if drop_p else nn.Identity()
 
-        self.act = nn.LeakyReLU()
+        self.act = nn.SELU()
 
         self._init_layer_weights()
         
     def _init_layer_weights(self):
         for module in self.modules():
             if hasattr(module, 'weights'):
-                nn.init.kaiming_normal_(module.weight, nonlinearity='leaky_relu')  # relu, leaky_relu, selu
+                nn.init.kaiming_normal_(module.weight, nonlinearity='selu')  # relu, leaky_relu, selu
 
     def forward(self, x):
         x = self.conv(x)
@@ -93,7 +93,6 @@ class decoder(nn.Module):
         super(decoder, self).__init__()
 
         upconv_class = nn.ConvTranspose3d if spatial_dim == 3 else nn.ConvTranspose2d
-        projection = nn.Conv3d if spatial_dim == 3 else nn.Conv2d
 
         self.upconv1 = upconv_class(in_channels=hidden_dims[4], out_channels=hidden_dims[3], kernel_size=2, stride=2)
         self.layer1 = nn.Sequential(
@@ -119,8 +118,6 @@ class decoder(nn.Module):
             ConvBlock(in_dim=hidden_dims[0], out_dim=hidden_dims[0], spatial_dim=spatial_dim, drop_p=drop_p)
         )
 
-        # self.fc = projection(in_channels=hidden_dims[0], out_channels=out_dim, kernel_size=1, stride=1)
-    
     def forward(self, h, stage_outputs):
         h = self.upconv1(h)
         h = torch.concat([h, stage_outputs['stage4']], dim=1) 
@@ -138,8 +135,6 @@ class decoder(nn.Module):
         h = torch.concat([h, stage_outputs['stage1']], dim=1) 
         h = self.layer4(h)
 
-        # h = self.fc(h)
-
         return h
     
 
@@ -149,8 +144,6 @@ class UNet_lateF(nn.Module):
         super(UNet_lateF, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
         self.use_MS = use_MS
-        input_dim = input_dim//2
-        # hidden_dims = [dim//2 for dim in hidden_dims]
 
         if use_MS:
             from model.model_genesis_UNet import UNet3D
@@ -164,15 +157,18 @@ class UNet_lateF(nn.Module):
 
             self.CT_net = UNet3D()
             self.CT_net.load_state_dict(new_state_dict) 
+
+            CT_out_dim = 64
             
         else:
             self.CT_encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
             self.CT_decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
+            CT_out_dim = hidden_dims[0]
 
         self.PET_encoder = encoder(in_dim=input_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
         self.PET_decoder = decoder(out_dim=out_dim, hidden_dims=hidden_dims, spatial_dim=spatial_dim, drop_p=dropout_p)
 
-        self.fc = nn.Conv3d(in_channels=hidden_dims[0]*2, out_channels=out_dim, kernel_size=1, stride=1)
+        self.fc = nn.Conv3d(in_channels=hidden_dims[0] + CT_out_dim, out_channels=out_dim, kernel_size=1, stride=1)
         
     def forward(self, x):
         ct, pet = torch.chunk(x,chunks=2, dim=1)
