@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from model.interintra_attention import IntraInter_Attention
 from typing import Union, List, Tuple
 
 
@@ -17,14 +18,14 @@ class ConvBlock(nn.Module):
             self.norm = nn.InstanceNorm2d(num_features=out_dim, affine=True)
             self.drop = nn.Dropout2d(p=drop_p) if drop_p else nn.Identity()
 
-        self.act = nn.LeakyReLU()
+        self.act = nn.SELU()
 
         self._init_layer_weights()
         
     def _init_layer_weights(self):
         for module in self.modules():
             if hasattr(module, 'weights'):
-                nn.init.kaiming_normal_(module.weight, nonlinearity='leaky_relu')  # relu, leaky_relu, selu
+                nn.init.kaiming_normal_(module.weight, nonlinearity='selu')  # relu, leaky_relu, selu
 
     def forward(self, x):
         x = self.conv(x)
