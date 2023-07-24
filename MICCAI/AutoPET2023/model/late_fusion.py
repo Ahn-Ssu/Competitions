@@ -144,6 +144,7 @@ class UNet_lateF(nn.Module):
         super(UNet_lateF, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
         self.use_MS = use_MS
+        input_dim = input_dim//2
 
         if use_MS:
             from model.model_genesis_UNet import UNet3D
@@ -182,11 +183,7 @@ class UNet_lateF(nn.Module):
         enc_out, stage_outputs = self.PET_encoder(pet)
         PET_out = self.PET_decoder(enc_out, stage_outputs)
 
-        # print(f'{PET_out.shape=}')
-        # print(f'{CT_out.shape=}')
         out = torch.concat([CT_out, PET_out], dim=1)
-        # print(f'{out.shape=}')
-
         out = self.fc(out)
 
         return out

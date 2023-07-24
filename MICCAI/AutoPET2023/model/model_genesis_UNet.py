@@ -134,6 +134,3 @@ class UNet3D(nn.Module):
 
         return out_up_64
     
-
-model = UNet3D()
-print(model)
