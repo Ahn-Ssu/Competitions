@@ -144,7 +144,6 @@ class UNet_lateF(nn.Module):
         super(UNet_lateF, self).__init__()
         assert spatial_dim in [2,3] and hidden_dims
         self.use_MS = use_MS
-        input_dim = input_dim//2
 
         if use_MS:
             from model.model_genesis_UNet import UNet3D
