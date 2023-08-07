@@ -72,7 +72,7 @@ def random_flip_all_axes(x, y, prob=0.5):
         x = fliper(x)
         y = fliper(y)
         
-        return x,y
+    return x, y
         
 
 
@@ -131,42 +131,42 @@ def local_pixel_shuffling(x, prob=0.5):
     - local_shuffling_x: transformed image of same shape as x
     """
     image_temp = torch.clone(x).detach()
-    orig_image = torch.clone(x).detach()
+    # orig_image = torch.clone(x).detach()
     channels, img_rows, img_cols, img_deps = x.shape
-    num_block = 10000
-    for i in range(channels):
-        if random.random() >= prob:
-            continue
-        for _ in range(num_block):
-            block_noise_size_x = random.randint(1, img_rows//10)
-            block_noise_size_y = random.randint(1, img_cols//10)
-            block_noise_size_z = random.randint(1, img_deps//10)
-            noise_x = random.randint(0, img_rows-block_noise_size_x)
-            noise_y = random.randint(0, img_cols-block_noise_size_y)
-            noise_z = random.randint(0, img_deps-block_noise_size_z)
-            window = orig_image[0, noise_x:noise_x+block_noise_size_x, 
-                                noise_y:noise_y+block_noise_size_y, 
-                                noise_z:noise_z+block_noise_size_z,
-                            ]
-            window = window.flatten().cpu().detach().numpy()
-            np.random.shuffle(window)
-            window = torch.from_numpy(window).to(orig_image.device)
-            window = window.reshape((block_noise_size_x, 
-                                    block_noise_size_y, 
-                                    block_noise_size_z))
-            image_temp[i, noise_x:noise_x+block_noise_size_x, 
-                        noise_y:noise_y+block_noise_size_y, 
-                        noise_z:noise_z+block_noise_size_z] = window
+    # num_block = 10000
+    # for i in range(channels):
+    #     if random.random() >= prob:
+    #         continue
+    #     for _ in range(num_block):
+    #         block_noise_size_x = random.randint(1, img_rows//10)
+    #         block_noise_size_y = random.randint(1, img_cols//10)
+    #         block_noise_size_z = random.randint(1, img_deps//10)
+    #         noise_x = random.randint(0, img_rows-block_noise_size_x)
+    #         noise_y = random.randint(0, img_cols-block_noise_size_y)
+    #         noise_z = random.randint(0, img_deps-block_noise_size_z)
+    #         window = orig_image[0, noise_x:noise_x+block_noise_size_x, 
+    #                             noise_y:noise_y+block_noise_size_y, 
+    #                             noise_z:noise_z+block_noise_size_z,
+    #                         ]
+    #         window = window.flatten().cpu().detach().numpy()
+    #         np.random.shuffle(window)
+    #         window = torch.from_numpy(window).to(orig_image.device)
+    #         window = window.reshape((block_noise_size_x, 
+    #                                 block_noise_size_y, 
+    #                                 block_noise_size_z))
+    #         image_temp[i, noise_x:noise_x+block_noise_size_x, 
+    #                     noise_y:noise_y+block_noise_size_y, 
+    #                     noise_z:noise_z+block_noise_size_z] = window
     
-    local_shuffling_x = image_temp
+    # local_shuffling_x = image_temp
     # print(f'local_pixel_shuffling {local_shuffling_x.requires_grad=}')
     
-    # voxel_shuffler = RandCoarseShuffle(prob=random.random(),
-    #                   holes=100,
-    #                   max_holes=10000,
-    #                   spatial_size=[1,1,1], # minimum size
-    #                   max_spatial_size=[img_rows//10, img_cols//10, img_deps//10])
-    # local_shuffling_x = voxel_shuffler(image_temp)
+    voxel_shuffler = RandCoarseShuffle(prob=random.random(),
+                      holes=100,
+                      max_holes=10000,
+                      spatial_size=[1,1,1], # minimum size
+                      max_spatial_size=[img_rows//10, img_cols//10, img_deps//10])
+    local_shuffling_x = voxel_shuffler(image_temp)
     
     
     return local_shuffling_x
@@ -199,35 +199,35 @@ def image_in_painting(x):
     Returns:
     - x: transformed image of same shape as x
     """
-    img_rows, img_cols, img_deps = x.shape
-    cnt = 5
-    while cnt > 0 and random.random() < 0.95:
-        block_noise_size_x = random.randint(img_rows//6, img_rows//3)
-        block_noise_size_y = random.randint(img_cols//6, img_cols//3)
-        block_noise_size_z = random.randint(img_deps//6, img_deps//3)
-        noise_x = random.randint(3, img_rows-block_noise_size_x-3)
-        noise_y = random.randint(3, img_cols-block_noise_size_y-3)
-        noise_z = random.randint(3, img_deps-block_noise_size_z-3)
-        x[noise_x:noise_x+block_noise_size_x, 
-          noise_y:noise_y+block_noise_size_y, 
-          noise_z:noise_z+block_noise_size_z] = torch.rand([block_noise_size_x, 
-                                                               block_noise_size_y, 
-                                                               block_noise_size_z,]) * 1.0
+    _, img_rows, img_cols, img_deps = x.shape
+    # cnt = 5
+    # while cnt > 0 and random.random() < 0.95:
+    #     block_noise_size_x = random.randint(img_rows//6, img_rows//3)
+    #     block_noise_size_y = random.randint(img_cols//6, img_cols//3)
+    #     block_noise_size_z = random.randint(img_deps//6, img_deps//3)
+    #     noise_x = random.randint(3, img_rows-block_noise_size_x-3)
+    #     noise_y = random.randint(3, img_cols-block_noise_size_y-3)
+    #     noise_z = random.randint(3, img_deps-block_noise_size_z-3)
+    #     x[noise_x:noise_x+block_noise_size_x, 
+    #       noise_y:noise_y+block_noise_size_y, 
+    #       noise_z:noise_z+block_noise_size_z] = torch.rand([block_noise_size_x, 
+    #                                                            block_noise_size_y, 
+    #                                                            block_noise_size_z,]) * 1.0
         
         
-        cnt -= 1
+    #     cnt -= 1
     # print(f'image_in_painting {x.requires_grad=}')
-    # if random.random() < 0.95:
-    #     inner_cutout =  RandCoarseDropout(prob=1,
-    #                       holes=3,
-    #                       max_holes=5,
-    #                       fill_value=(0, 1),
-    #                       spatial_size=[img_rows//6, img_cols//6, img_deps//6],
-    #                       max_spatial_size=[img_rows//3, img_cols//3, img_deps//3],
-    #                       dropout_holes=True # inner cutout
-    #                       )
+    if random.random() < 0.95:
+        inner_cutout =  RandCoarseDropout(prob=1,
+                          holes=3,
+                          max_holes=5,
+                          fill_value=(0, 1),
+                          spatial_size=[img_rows//6, img_cols//6, img_deps//6],
+                          max_spatial_size=[img_rows//3, img_cols//3, img_deps//3],
+                          dropout_holes=True # inner cutout
+                          )
         
-    #     x = inner_cutout(x)
+        x = inner_cutout(x)
     
     return x
 
@@ -242,47 +242,47 @@ def image_out_painting(x):
     Returns:
     - x: transformed image of same shape as x
     """
-    img_rows, img_cols, img_deps = x.shape
-    image_temp = torch.clone(x).detach()
-    x = torch.rand(*x.shape) * 1.0
-    block_noise_size_x = img_rows - random.randint(3*img_rows//7, 4*img_rows//7)
-    block_noise_size_y = img_cols - random.randint(3*img_cols//7, 4*img_cols//7)
-    block_noise_size_z = img_deps - random.randint(3*img_deps//7, 4*img_deps//7)
-    noise_x = random.randint(3, img_rows-block_noise_size_x-3)
-    noise_y = random.randint(3, img_cols-block_noise_size_y-3)
-    noise_z = random.randint(3, img_deps-block_noise_size_z-3)
-    x[noise_x:noise_x+block_noise_size_x, 
-      noise_y:noise_y+block_noise_size_y, 
-      noise_z:noise_z+block_noise_size_z] = image_temp[noise_x:noise_x+block_noise_size_x, 
-                                                       noise_y:noise_y+block_noise_size_y, 
-                                                       noise_z:noise_z+block_noise_size_z]
-    cnt = 4
-    while cnt > 0 and random.random() < 0.95:
-        block_noise_size_x = img_rows - random.randint(3*img_rows//7, 4*img_rows//7)
-        block_noise_size_y = img_cols - random.randint(3*img_cols//7, 4*img_cols//7)
-        block_noise_size_z = img_deps - random.randint(3*img_deps//7, 4*img_deps//7)
-        noise_x = random.randint(3, img_rows-block_noise_size_x-3)
-        noise_y = random.randint(3, img_cols-block_noise_size_y-3)
-        noise_z = random.randint(3, img_deps-block_noise_size_z-3)
-        x[noise_x:noise_x+block_noise_size_x, 
-          noise_y:noise_y+block_noise_size_y, 
-          noise_z:noise_z+block_noise_size_z] = image_temp[noise_x:noise_x+block_noise_size_x, 
-                                                           noise_y:noise_y+block_noise_size_y, 
-                                                           noise_z:noise_z+block_noise_size_z]
-        cnt -= 1
+    _, img_rows, img_cols, img_deps = x.shape
+    # image_temp = torch.clone(x).detach()
+    # x = torch.rand(*x.shape) * 1.0
+    # block_noise_size_x = img_rows - random.randint(3*img_rows//7, 4*img_rows//7)
+    # block_noise_size_y = img_cols - random.randint(3*img_cols//7, 4*img_cols//7)
+    # block_noise_size_z = img_deps - random.randint(3*img_deps//7, 4*img_deps//7)
+    # noise_x = random.randint(3, img_rows-block_noise_size_x-3)
+    # noise_y = random.randint(3, img_cols-block_noise_size_y-3)
+    # noise_z = random.randint(3, img_deps-block_noise_size_z-3)
+    # x[noise_x:noise_x+block_noise_size_x, 
+    #   noise_y:noise_y+block_noise_size_y, 
+    #   noise_z:noise_z+block_noise_size_z] = image_temp[noise_x:noise_x+block_noise_size_x, 
+    #                                                    noise_y:noise_y+block_noise_size_y, 
+    #                                                    noise_z:noise_z+block_noise_size_z]
+    # cnt = 4
+    # while cnt > 0 and random.random() < 0.95:
+    #     block_noise_size_x = img_rows - random.randint(3*img_rows//7, 4*img_rows//7)
+    #     block_noise_size_y = img_cols - random.randint(3*img_cols//7, 4*img_cols//7)
+    #     block_noise_size_z = img_deps - random.randint(3*img_deps//7, 4*img_deps//7)
+    #     noise_x = random.randint(3, img_rows-block_noise_size_x-3)
+    #     noise_y = random.randint(3, img_cols-block_noise_size_y-3)
+    #     noise_z = random.randint(3, img_deps-block_noise_size_z-3)
+    #     x[noise_x:noise_x+block_noise_size_x, 
+    #       noise_y:noise_y+block_noise_size_y, 
+    #       noise_z:noise_z+block_noise_size_z] = image_temp[noise_x:noise_x+block_noise_size_x, 
+    #                                                        noise_y:noise_y+block_noise_size_y, 
+    #                                                        noise_z:noise_z+block_noise_size_z]
+    #     cnt -= 1
     # print(f'image_out_painting {x.requires_grad=}')
     
-    # if random.random() < 0.95:
-    #     outer_cutout =  RandCoarseDropout(prob=1,
-    #                       holes=3,
-    #                       max_holes=5,
-    #                       fill_value=(0, 1),
-    #                       spatial_size=[3*img_rows//7, 3*img_cols//7, 3*img_deps//7],
-    #                       max_spatial_size=[4*img_rows//7, 4*img_cols//7, 4*img_deps//7],
-    #                       dropout_holes=False # outer cutout
-    #                       )
+    if random.random() < 0.95:
+        outer_cutout =  RandCoarseDropout(prob=1,
+                          holes=3,
+                          max_holes=5,
+                          fill_value=(0, 1),
+                          spatial_size=[3*img_rows//7, 3*img_cols//7, 3*img_deps//7],
+                          max_spatial_size=[4*img_rows//7, 4*img_cols//7, 4*img_deps//7],
+                          dropout_holes=False # outer cutout
+                          )
         
-    #     x = outer_cutout(x)
+        x = outer_cutout(x)
     
     return x
                 
@@ -300,18 +300,27 @@ def generate_single_pair(y, config):
     """
     # Autoencoder
     x = torch.clone(y).detach()
+    print('input shape', x.shape, y.shape)
     
     # Flip
     x, y = random_flip_all_axes(x, y, config.flip_rate)
+    print('random_flip_all_axes shape', x.shape, y.shape)
+    
 
     # Local Shuffle Pixel
     x = local_pixel_shuffling(x, prob=config.local_rate)
+    print('local_pixel_shuffling shape', x.shape, y.shape)
+    
     
     # Apply non-Linear transformation with an assigned probability
     if config.modality == 'CT':
         x = nonlinear_transformation(x, config.nonlinear_rate, normalisation=config.norm_type)
+        print('nonlinear_transformation shape', x.shape, y.shape)
+        
     elif config.modality == 'PET':
         x = added_gaussian_noise(x, prob=config.noise_rate)
+        print('added_gaussian_noise shape', x.shape, y.shape)
+        
 
     
     # Inpainting & Outpainting
@@ -320,10 +329,13 @@ def generate_single_pair(y, config):
         if random.random() < config.paint_rate:
             if random.random() < config.inpaint_rate:
                 # Inpainting
-                x[i] = image_in_painting(x[i])
+                x[i] = image_in_painting(x[i:i+1])
+                print('image_in_painting shape', x.shape, y.shape)
             else:
                 # Outpainting
-                x[i] = image_out_painting(x[i])
+                x[i] = image_out_painting(x[i:i+1])
+                print('image_out_painting shape', x.shape, y.shape)
+                
     
     return x, y
 
