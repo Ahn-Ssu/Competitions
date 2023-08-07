@@ -300,26 +300,26 @@ def generate_single_pair(y, config):
     """
     # Autoencoder
     x = torch.clone(y).detach()
-    print('input shape', x.shape, y.shape)
+    # print('input shape', x.shape, y.shape)
     
     # Flip
     x, y = random_flip_all_axes(x, y, config.flip_rate)
-    print('random_flip_all_axes shape', x.shape, y.shape)
+    # print('random_flip_all_axes shape', x.shape, y.shape)
     
 
     # Local Shuffle Pixel
     x = local_pixel_shuffling(x, prob=config.local_rate)
-    print('local_pixel_shuffling shape', x.shape, y.shape)
+    # print('local_pixel_shuffling shape', x.shape, y.shape)
     
     
     # Apply non-Linear transformation with an assigned probability
     if config.modality == 'CT':
         x = nonlinear_transformation(x, config.nonlinear_rate, normalisation=config.norm_type)
-        print('nonlinear_transformation shape', x.shape, y.shape)
+        # print('nonlinear_transformation shape', x.shape, y.shape)
         
     elif config.modality == 'PET':
         x = added_gaussian_noise(x, prob=config.noise_rate)
-        print('added_gaussian_noise shape', x.shape, y.shape)
+        # print('added_gaussian_noise shape', x.shape, y.shape)
         
 
     
@@ -330,11 +330,11 @@ def generate_single_pair(y, config):
             if random.random() < config.inpaint_rate:
                 # Inpainting
                 x[i] = image_in_painting(x[i:i+1])
-                print('image_in_painting shape', x.shape, y.shape)
+                # print('image_in_painting shape', x.shape, y.shape)
             else:
                 # Outpainting
                 x[i] = image_out_painting(x[i:i+1])
-                print('image_out_painting shape', x.shape, y.shape)
+                # print('image_out_painting shape', x.shape, y.shape)
                 
     
     return x, y
