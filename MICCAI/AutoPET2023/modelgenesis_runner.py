@@ -4,7 +4,8 @@ from model import late_fusion, middle_fusion
 
 def run():
     import os
-    os.environ["CUDA_VISIBLE_DEVICES"]= '2,3'
+    # os.environ["CUDA_VISIBLE_DEVICES"]= '2,3'
+    import random
     from datetime import datetime, timezone, timedelta
 
     from easydict import EasyDict
@@ -18,6 +19,7 @@ def run():
 
     from monai.transforms import (
                             Compose,
+                            OneOf,
 
                             LoadImaged,
                             EnsureTyped,
@@ -25,6 +27,12 @@ def run():
                             Orientationd,
                             CropForegroundd, 
                             RandSpatialCropd,
+                            
+                            RandFlipd,
+                            RandCoarseShuffled,
+                            RandGaussianNoised,
+                            RandCoarseDropoutd,
+                            
                         )
 
     from dataloader import KFold_pl_DataModule
@@ -34,20 +42,20 @@ def run():
     args = EasyDict()
 
     args.img_size = 128
-    args.batch_size = 4
+    args.batch_size = 8
     args.epoch = 1000
     args.init_lr = 1e-2
-    args.lr_dec_rate = 0.0001 
+    args.lr_dec_rate = 0.001 
     args.weight_decay = 0.05
 
     # preprocesing cfg
-    args.CT_min = -600
-    args.CT_max = 400
+    args.CT_min = -1000
+    args.CT_max = 1000
     args.PET_min = 0
     args.PET_max = 40 
 
     # model cfg
-    args.hidden_dims = [16,32,64,128,256]
+    args.hidden_dims = [32,32,64,128,256]
     args.dropout_p = 0.
     args.use_MS = False
 
@@ -58,7 +66,7 @@ def run():
     args.genesis_args.outpaint_rate = 0.8   # prob of outer painting
     args.genesis_args.inpaint_rate = 0.2    # prob of inner painting
 
-    ## added to 
+    ## added to 7
     args.genesis_args.noise_rate = 0.9      # ADDED - prob of noising 
     args.genesis_args.modality = "PET" # "PET"
 
@@ -68,6 +76,7 @@ def run():
     args.genesis_args.norm_type = "minmax"
 
     args.seed = 41
+    args.server = 'mk4'
     seed.seed_everything(args.seed)
 
 
@@ -88,6 +97,58 @@ def run():
         RandSpatialCropd(keys=all_key, roi_size=[args.img_size,args.img_size,args.img_size], random_size=False)
     ]
     )
+    
+    PET_SSL_transform = Compose([
+        LoadImaged(keys=all_key, ensure_channel_first=True),
+        EnsureTyped(keys=all_key, track_meta=False),
+        Orientationd(keys=all_key, axcodes='RAS'),
+        ScaleIntensityRanged(keys='ct',
+                                 a_min=args.CT_min, a_max=args.CT_max,
+                                 b_min=0, b_max=1, clip=True),
+        ScaleIntensityRanged(keys='pet',
+                                a_min=args.PET_min, a_max=args.PET_max,
+                                b_min=0, b_max=1, clip=True),
+
+        CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
+        RandSpatialCropd(keys=all_key, roi_size=[args.img_size,args.img_size,args.img_size], random_size=False),
+        
+        # flip, pixel shuffling, in-out painting 
+        RandFlipd(keys=all_key, prob=args.genesis_args.flip_rate, spatial_axis=0), 
+        RandFlipd(keys=all_key, prob=args.genesis_args.flip_rate, spatial_axis=1),
+        RandFlipd(keys=all_key, prob=args.genesis_args.flip_rate, spatial_axis=2),
+        
+        RandCoarseShuffled(keys='pet',
+                           prob=args.genesis_args.local_rate,
+                        holes=100,
+                        max_holes=10000,
+                        spatial_size=[1,1,1], # minimum size
+                        max_spatial_size=[args.img_size//10, args.img_size//10, args.img_size//10]),
+        
+        OneOf([RandGaussianNoised(keys='pet', prob=args.genesis_args.noise_rate, 
+                                  mean=random.uniform(0.0, 0.1) if random.random() > 0.5 else 0 , 
+                                  std=random.uniform(0.001, 0.1)) for i in range(20)]),
+        
+        OneOf([RandCoarseDropoutd(keys='pet', prob=args.genesis_args.paint_rate,
+                          holes=3,
+                          max_holes=5,
+                          fill_value=(0, 1),
+                          spatial_size=[args.img_size//6, args.img_size//6, args.img_size//6],
+                          max_spatial_size=[args.img_size//3, args.img_size//3, args.img_size//3],
+                          dropout_holes=True # inner cutout
+                          ),
+               RandCoarseDropoutd(keys='pet',prob=args.genesis_args.paint_rate,
+                          holes=3,
+                          max_holes=5,
+                          fill_value=(0, 1),
+                          spatial_size=[3*args.img_size//7, 3*args.img_size//7, 3*args.img_size//7],
+                          max_spatial_size=[4*args.img_size//7, 4*args.img_size//7, 4*args.img_size//7],
+                          dropout_holes=False # outer cutout
+                          )
+               ], weights=(0.8, 0.2))
+        
+        
+    ]
+    )
 
     num_split = 10 # training : validation = 9 : 1 
     KST = timezone(timedelta(hours=9))
@@ -105,7 +166,7 @@ def run():
                             num_workers=8,
                             pin_memory=False,
                             persistent_workers=True,
-                            train_transform=transform,
+                            train_transform=PET_SSL_transform,
                             val_transform=transform
                         )
 
@@ -136,7 +197,7 @@ def run():
                             save_dir='.',
                             default_hp_metric=False,
                             # version='LEARNING CHECK',
-                            version=f'Modelgenesis/{_day}/PET=(0, 40) || UNet(32,512) w He - GPU devices[2,3]'
+                            version=f'10.ModelGenesis/{_day}/PET-only AutoPET data'
                         )
         profiler = PyTorchProfiler()
 
@@ -144,7 +205,7 @@ def run():
                     max_epochs=args.epoch,
                     devices=[0,1],
                     accelerator='gpu',
-                    precision='16-mixed',
+                    # precision='16-mixed',
                     # strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     callbacks=[lr_monitor, checkpoint_callback],
                     check_val_every_n_epoch=3,
@@ -154,7 +215,7 @@ def run():
                     # accumulate_grad_batches=2
                     # profiler='advanced', #advanced
                     # profiler=profiler
-                )
+            )
         
 
         
