@@ -1,0 +1,62 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    CT_max: 1000
+    CT_min: -1000
+    PET_max: 40
+    PET_min: 0
+    batch_size: 8
+    dropout_p: 0.0
+    epoch: 1000
+    genesis_args: &id001 !!python/object/new:easydict.EasyDict
+      dictitems:
+        flip_rate: 0.4
+        inpaint_rate: 0.2
+        local_rate: 0.5
+        modality: PET
+        noise_rate: 0.9
+        nonlinear_rate: 0.9
+        norm_type: minmax
+        outpaint_rate: 0.8
+        paint_rate: 0.9
+        rotation_rate: 0.0
+      state:
+        flip_rate: 0.4
+        inpaint_rate: 0.2
+        local_rate: 0.5
+        modality: PET
+        noise_rate: 0.9
+        nonlinear_rate: 0.9
+        norm_type: minmax
+        outpaint_rate: 0.8
+        paint_rate: 0.9
+        rotation_rate: 0.0
+    hidden_dims: &id002
+    - 32
+    - 32
+    - 64
+    - 128
+    - 256
+    img_size: 128
+    init_lr: 0.01
+    lr_dec_rate: 0.001
+    seed: 41
+    server: mk4
+    use_MS: false
+    weight_decay: 0.05
+  state:
+    CT_max: 1000
+    CT_min: -1000
+    PET_max: 40
+    PET_min: 0
+    batch_size: 8
+    dropout_p: 0.0
+    epoch: 1000
+    genesis_args: *id001
+    hidden_dims: *id002
+    img_size: 128
+    init_lr: 0.01
+    lr_dec_rate: 0.001
+    seed: 41
+    server: mk4
+    use_MS: false
+    weight_decay: 0.05
