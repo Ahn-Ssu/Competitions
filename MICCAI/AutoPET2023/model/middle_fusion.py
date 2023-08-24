@@ -203,7 +203,7 @@ class UNet_middleF(nn.Module):
             out = self.decoder(PET_enc_out, stage_outputs)
         else:
             PET_enc_out, PET_stage_outputs = self.PET_encoder(pet)
-            CT_enc_out, CT_stage_outputs = self.PET_encoder(ct)
+            CT_enc_out, CT_stage_outputs = self.CT_encoder(ct)
 
             # process each output of the encoders to pass into the decoder 
             enc_out = torch.concat([PET_enc_out, CT_enc_out], dim=1)
