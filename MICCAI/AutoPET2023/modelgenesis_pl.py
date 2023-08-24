@@ -60,6 +60,9 @@ class Modelgenesis_network(pl.LightningModule):
         loss = self.loss(y_hat, pet)
         self.loss_log.append(loss.item())
         
+        if self.current_epoch % 10 == 0 and batch_idx % 20 == 0:
+            self.log_img_on_TB(ct, pet, None, y_hat, batch_idx)
+        
 
     def log_img_on_TB(self, ct, pet, seg_y, pred, batch_idx) -> None:
          
@@ -84,16 +87,11 @@ class Modelgenesis_network(pl.LightningModule):
         pet = pet.squeeze(0)
         seg_y = seg_y.squeeze(0)
 
-        C, W, H, D = ct.size()
-        target_idx = [idx for idx in range(H//5, H, H//5)]
+        # C, W, H, D = ct.size()
+        target_idx = 200
 
         for vol_idx in target_idx:
             # add_images('title', data', dataformats='NCHW)
-            tb_logger.add_image(f"CT/BZ[{batch_idx}]_{vol_idx}", ct[..., vol_idx, :], dataformats='CHW')
-            tb_logger.add_image(f"PET/BZ[{batch_idx}]_{vol_idx}", pet[..., vol_idx, :], dataformats='CHW')
-            tb_logger.add_image(f"GroundTruth/BZ[{batch_idx}]_{vol_idx}", torch.where(seg_y[..., vol_idx, :] ==1, 255, 0), dataformats='CHW')
-            tb_logger.add_image(f"Prediction/BZ[{batch_idx}]_{vol_idx}", torch.where(pred[..., vol_idx, :]==1, 255, 0), dataformats='CHW')
-
-
-
-
+            tb_logger.add_image(f"CT_input/BZ[{batch_idx}]_{vol_idx}", ct[..., vol_idx, :], dataformats='CHW')
+            # tb_logger.add_image(f"PET_input/BZ[{batch_idx}]_{vol_idx}", pet[..., vol_idx, :], dataformats='CHW')
+            tb_logger.add_image(f"y_hat/BZ[{batch_idx}]_{vol_idx}", pred[..., vol_idx, :], dataformats='CHW')
