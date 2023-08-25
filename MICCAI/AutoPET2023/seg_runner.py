@@ -3,6 +3,7 @@
 def run():
     import os
     os.environ["CUDA_VISIBLE_DEVICES"]= '2,3' # '0,1'
+    import numpy as np
     from easydict import EasyDict
     from datetime import datetime, timezone, timedelta
 
@@ -12,38 +13,10 @@ def run():
     from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
     from pytorch_lightning.loggers import TensorBoardLogger
 
-    from monai.transforms import (
-                            Compose,
-                            OneOf,
-
-                            LoadImaged,
-                            EnsureTyped,
-                            ScaleIntensityRanged,
-                            ScaleIntensityRangePercentilesd,
-                            Orientationd,
-                            CropForegroundd, 
-                            RandCropByPosNegLabeld,
-                            RandSpatialCropd,
-
-                            RandFlipd,
-                            RandRotated,
-                            RandZoomd,
-
-                            RandShiftIntensityd,
-                            RandScaleIntensityd,
-                            RandAdjustContrastd,
-                            RandGaussianNoised,
-                            RandGaussianSmoothd,
-                            RandGaussianSharpend,
-                            HistogramNormalized,
-
-                            RandCoarseDropoutd,
-                            RandCoarseShuffled
-                        )
-
     from dataloader import KFold_pl_DataModule
     from model import unet_baseline, late_fusion, middle_fusion
     from seg_pl import Segmentation_network
+    from utils.transform_generator import MONAI_transformerd
 
     from monai.networks.nets import basic_unet
 
@@ -57,90 +30,30 @@ def run():
     args.lr_dec_rate = 0.001 # 기존에 쓰던건 0.001로 많이 내려가게 했었음 
     args.weight_decay = 0.05
 
-    # preprocesing cfg
-    args.CT_min = -600
-    args.CT_max = 400
-    args.PET_min = 0
-    args.PET_max = 40
-    args.PET_lower = 0.
-    args.PET_upper = 98
-
     # model cfg
     args.hidden_dims = [32,32,64,128,256]
     args.dropout_p = 0.
     args.use_MS = False
 
     args.seed = 41
-    args.server = 'mk3'
+    args.server = 'mk4'
     seed.seed_everything(args.seed)
 
 
     all_key = ['ct','pet','label']
+    input_key = ['ct','pet']
+    transformer = MONAI_transformerd(aug_Lv=1,
+                                     all_key=all_key, input_key=input_key, 
+                                     input_size=(args.img_size, args.img_size, args.img_size))
+    intensity_cfg, augmentation_cfg = transformer.get_CFGs()
+    args.intensity_cfg = intensity_cfg
+    args.aug_cfg = augmentation_cfg
+    args.is_randAug = False
 
-    test_transform = Compose([
-        LoadImaged(keys=all_key, ensure_channel_first=True),
-        EnsureTyped(keys=all_key, track_meta=False),
-        Orientationd(keys=all_key, axcodes='RAS'),
-        ScaleIntensityRanged(keys='ct',
-                                 a_min=args.CT_min, a_max=args.CT_max,
-                                 b_min=0, b_max=1, clip=True),
-        # ScaleIntensityRanged(keys='pet',
-        #                         a_min=args.PET_min, a_max=args.PET_max,
-        #                         b_min=0, b_max=1, clip=True),
-        ScaleIntensityRangePercentilesd(keys='pet',
-                                        lower=args.PET_lower, upper=args.PET_upper,
-                                        b_min=0, b_max=1, clip=True),
-        CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
-    ]
-    )
-
-    train_transform = Compose([
-            LoadImaged(keys=all_key, ensure_channel_first=True),
-            EnsureTyped(keys=all_key, track_meta=False), # for training track_meta=False, monai.data.set_track_meta(false)
-            Orientationd(keys=all_key, axcodes='RAS'),
-            ScaleIntensityRanged(keys='ct',
-                                 a_min=args.CT_min, a_max=args.CT_max,
-                                 b_min=0, b_max=1, clip=True),
-            # ScaleIntensityRanged(keys='pet',
-            #                      a_min=args.PET_min, a_max=args.PET_max,
-            #                      b_min=0, b_max=1, clip=True),
-            ScaleIntensityRangePercentilesd(keys='pet',
-                                        lower=args.PET_lower, upper=args.PET_upper,
-                                        b_min=0, b_max=1, clip=True),
-            CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
-            OneOf([
-                RandCropByPosNegLabeld(keys=all_key, label_key='label', 
-                                       spatial_size=(args.img_size,args.img_size,args.img_size), 
-                                       pos=1, neg=0.2, num_samples=1,
-                                       image_key='pet',
-                                       image_threshold=0), # 흑색종일때 label에 따라서 잘 되는지 확인해야함 
-                RandSpatialCropd(keys=all_key, roi_size=[args.img_size,args.img_size,args.img_size], random_size=False
-                                 )],
-                weights=[0.8, 0.2],
-                ),
-            # spatial
-            # RandFlipd(keys=all_key, prob=0.5, spatial_axis=0), 
-            # RandFlipd(keys=all_key, prob=0.1, spatial_axis=1),
-            # RandFlipd(keys=all_key, prob=0.1, spatial_axis=2),
-            # # RandRotated(keys=all_key, range_x=20, range_y=5, range_z=5, prob=0.2),
-            # # RandZoomd(keys=all_key, prob=0.2),
-
-            # # intensity
-            # RandShiftIntensityd(keys=['pet','ct'], offsets=0.01, prob=0.2),
-            # RandScaleIntensityd(keys=['pet','ct'], prob=0.2, factors=0.1),
-            # RandAdjustContrastd(keys=['pet','ct'], prob=0.2),
-            # OneOf([
-            #     RandGaussianNoised(keys=['pet','ct'], prob=0.2),
-            #     RandGaussianSmoothd(keys=['pet','ct'], prob=0.2),
-            #     RandGaussianSharpend(keys=['pet','ct'], prob=0.2),
-            # ]),
-            
-            # OneOf([
-            #     RandCoarseDropoutd(keys=['pet','ct'], prob=0.2, holes=10, spatial_size=10),
-            #     RandCoarseShuffled(keys=['pet','ct'], prob=0.2, holes=10, spatial_size=10)
-            # ]
-            # )000
-        ]) # ㄱㅣㅈㅗㄴ [-100, 400] - [0, 30] || ㅈㅣㄱㅡㅁ ㄷㅗㄹㅇㅏㄱㅏㄴㅡㄴ ㄱㅓ -100 500, 0 100
+    test_transform = transformer.generate_test_transform(args.intensity_cfg)
+    train_transform = transformer.generate_train_transform(args.intensity_cfg,
+                                                           augmentation_cfg=args.augmentation_cfg,
+                                                           is_randAug=args.is_randAug)
 
     # set_track_meta(False)
 
