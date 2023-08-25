@@ -78,7 +78,7 @@ def run():
                         )
 
         model = middle_fusion.UNet_middleF(
-                            input_dim=3,
+                            input_dim=2,
                             out_dim=2,
                             hidden_dims=args.hidden_dims, # 16 32 32 64 128 is default setting of Monai
                             spatial_dim=3,
@@ -96,6 +96,7 @@ def run():
         #                 )
         
         # print(model)
+        args.z_model_arch = str(model)
         
         pl_runner = Segmentation_network(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
         
