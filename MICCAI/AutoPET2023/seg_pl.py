@@ -93,7 +93,7 @@ class Segmentation_network(pl.LightningModule):
         y_hat = sliding_window_inference(
                                     inputs=image,
                                     roi_size= (self.args.img_size,self.args.img_size,self.args.img_size), # (128, 128, 128)
-                                    sw_batch_size=4, # number of the multiprocessor
+                                    sw_batch_size=2, # number of the multiprocessor
                                     predictor= self.model,
                                     overlap=0.5,
                                     mode= "constant" # GAUSSIAN = "gaussian" 
@@ -106,8 +106,14 @@ class Segmentation_network(pl.LightningModule):
         outputs = [self.post_pred(i) for i in decollate_batch(y_hat)]
         labels = [self.post_label(i) for i in decollate_batch(seg_y)]
 
-        pred = torch.argmax(y_hat, dim=1)
-        pred = torch.where(F.sigmoid(pred) > 0.5, 1., 0.)
+
+        ## Softmax
+        pred = F.softmax(y_hat, dim=1)
+        pred = torch.argmax(pred, dim=1)
+        pred = torch.where(pred > 0.5, 1., 0.)
+        ## Sigmoid
+        # pred = torch.argmax(y_hat, dim=1)
+        # pred = torch.where(F.sigmoid(pred) > 0.5, 1., 0.)
         confusion_vector = pred / seg_y
         # Element-wise division of the 2 tensors returns a new tensor which holds a
         # unique value for each case:
