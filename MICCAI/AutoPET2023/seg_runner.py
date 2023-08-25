@@ -25,7 +25,7 @@ def run():
     # training cfg
     args.img_size = 128
     args.batch_size = 1
-    args.epoch = 200
+    args.epoch = 500
     args.init_lr = 1e-4
     args.lr_dec_rate = 0.001 # 기존에 쓰던건 0.001로 많이 내려가게 했었음 
     args.weight_decay = 0.05
@@ -36,7 +36,7 @@ def run():
     args.use_MS = False
 
     args.seed = 41
-    args.server = 'mk4'
+    args.server = 'mk3'
     seed.seed_everything(args.seed)
 
 
@@ -112,7 +112,7 @@ def run():
         logger = TensorBoardLogger(
                             save_dir='.',
                             # version='LEARNING CHECK',
-                            version=f'2.Intensity/{_day}/PET)Percentiles, middle fusion',
+                            version=f'3.Augmentation/{_day}/Lv1)nnUNet impl aug + softmax + PET-20-40 + corrected middle fusion',
                             default_hp_metric=False
                         )
         
