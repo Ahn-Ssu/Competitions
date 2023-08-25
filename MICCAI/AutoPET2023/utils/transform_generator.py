@@ -79,10 +79,10 @@ class MONAI_transformerd():
             augmentation_cfg.shift_offsets = 0.2
         
         
-        self.aug_LV = aug_Lv
+        self.aug_Lv = aug_Lv
         self.all_key = all_key
         self.input_key = input_key
-        self.input_size = input_size
+        self.img_size = input_size
         self.intensity_cfg = intensity_cfg
         self.augmentation_cfg = augmentation_cfg
         
@@ -144,7 +144,7 @@ class MONAI_transformerd():
         
         
     def _get_default_auglist(self, intensity_cfg)->list:
-        # intensity_cfg.img_sioze
+        # intensity_cfg.img_size
         return [
             LoadImaged(keys=self.all_key, ensure_channel_first=True),
             EnsureTyped(keys=self.all_key, track_meta=False), # for training track_meta=False, monai.data.set_track_meta(false)
@@ -163,13 +163,13 @@ class MONAI_transformerd():
             CropForegroundd(keys=self.all_key, source_key='pet'), # source_key 'ct' or 'pet'
             OneOf([
                 RandCropByPosNegLabeld(keys=self.all_key, label_key='label', 
-                                       spatial_size=(intensity_cfg.img_size,intensity_cfg.img_size,intensity_cfg.img_size), 
+                                       spatial_size=self.img_size, 
                                        pos=1, neg=0.2, num_samples=1,
                                        image_key='pet',
                                        image_threshold=0), # 흑색종일때 label에 따라서 잘 되는지 확인해야함 
-                RandSpatialCropd(keys=self.all_key, roi_size=[intensity_cfg.img_size,intensity_cfg.img_size,intensity_cfg.img_size], random_size=False
+                RandSpatialCropd(keys=self.all_key, roi_size=self.img_size, random_size=False
                                  )],
-                weights=[0.8, 0.2],
+                weights=[0.8, 0.2]
                 )
         ]
         

@@ -2,8 +2,7 @@
 
 def run():
     import os
-    os.environ["CUDA_VISIBLE_DEVICES"]= '2,3' # '0,1'
-    import numpy as np
+    os.environ["CUDA_VISIBLE_DEVICES"]= '0,1'
     from easydict import EasyDict
     from datetime import datetime, timezone, timedelta
 
@@ -36,18 +35,19 @@ def run():
     args.use_MS = False
 
     args.seed = 41
-    args.server = 'mk3'
+    args.server = 'mk4'
     seed.seed_everything(args.seed)
 
 
     all_key = ['ct','pet','label']
     input_key = ['ct','pet']
-    transformer = MONAI_transformerd(aug_Lv=1,
+    args.aug_Lv = 1
+    transformer = MONAI_transformerd(aug_Lv=args.aug_Lv,
                                      all_key=all_key, input_key=input_key, 
                                      input_size=(args.img_size, args.img_size, args.img_size))
     intensity_cfg, augmentation_cfg = transformer.get_CFGs()
     args.intensity_cfg = intensity_cfg
-    args.aug_cfg = augmentation_cfg
+    args.augmentation_cfg = augmentation_cfg
     args.is_randAug = False
 
     test_transform = transformer.generate_test_transform(args.intensity_cfg)
@@ -78,10 +78,10 @@ def run():
                         )
 
         model = middle_fusion.UNet_middleF(
+                            spatial_dim=3,
                             input_dim=2,
                             out_dim=2,
                             hidden_dims=args.hidden_dims, # 16 32 32 64 128 is default setting of Monai
-                            spatial_dim=3,
                             dropout_p=args.dropout_p,
                             use_MS=args.use_MS
                         )
@@ -112,8 +112,8 @@ def run():
         
         logger = TensorBoardLogger(
                             save_dir='.',
-                            # version='LEARNING CHECK',
-                            version=f'3.Augmentation/{_day}/Lv1)nnUNet impl aug + softmax + PET-20-40 + corrected middle fusion',
+                            version='LEARNING CHECK',
+                            # version=f'3.Augmentation/{_day}/mk4)Lv1 aug + softmax + PET-20-40 + corrected middle fusion',
                             default_hp_metric=False
                         )
         

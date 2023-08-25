@@ -38,9 +38,10 @@ class PETCT_dataset(Dataset):
         # data_d = LoadImaged(keys=['image','label'])(path_d)
         try:
             data_d = self.transform(path_d)
-        except:
-            print("RuntimeError: applying transform <monai.transforms.io.dictionary.LoadImaged object at 0x7fd968ab4310>")
-            print("same err occur")
+        except Exception as err:
+            print(err)
+            # print("RuntimeError: applying transform <monai.transforms.io.dictionary.LoadImaged object at 0x7fd968ab4310>")
+            # print("same err occur")
             print(path_d)
             exit()
 
