@@ -73,7 +73,8 @@ class Chemcial_dataset(Dataset):
         HLM = torch.tensor(HLM, dtype=torch.long)
         
         return Data(x=atomic_feature, mol_f=molecular_feature,
-                    edge_index=edge_index, edge_attr=edge_attr)
+                    edge_index=edge_index, edge_attr=edge_attr,
+                    MLM = MLM, HLM=HLM)
             
         
         
