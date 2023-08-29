@@ -5,6 +5,8 @@ from pytorch_lightning.utilities.types import STEP_OUTPUT
 import torch
 import torch.nn as nn
 
+import numpy as np
+
 from torchmetrics.regression import MeanSquaredError
 from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
 from adamp import AdamP
@@ -33,22 +35,22 @@ class Regression_network(pl.LightningModule):
         MLM, HLM = batch.MLM, batch.HLM
         
         if self.args.MLM:
-            y_hat = self.model(MLM)
+            y_hat = self.model(batch)
             loss = torch.sqrt(self.loss(y_hat, MLM))
         else:
-            y_hat = self.model(HLM)
+            y_hat = self.model(batch)
             loss = torch.sqrt(self.loss(y_hat, HLM))
             
-        self.log('train_RMSE_loss', loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
+        self.log('train_loss', loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
         return loss
     
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
         self._shared_eval_step(batch, batch_idx)
         
-    def on_validation_batch_end(self) -> None:
         
-        val_loss = torch.mean(self.rmse_log)
-        self.log_dict({f'{"MLM" if self.args.MLM else "HLM"}/val_rmse_loss': val_loss})
+    def on_validation_batch_end(self, *args, **kwargs) -> None:
+        val_loss = np.mean(self.rmse_log)
+        self.log_dict({f'val_loss': val_loss}, prog_bar=True)
         
         self.rmse_log.clear()
         
@@ -57,20 +59,11 @@ class Regression_network(pl.LightningModule):
         MLM, HLM = batch.MLM, batch.HLM
         
         if self.args.MLM:
-            y_hat = self.model(MLM)
+            y_hat = self.model(batch)
             loss = torch.sqrt(self.loss(y_hat, MLM))
         else:
-            y_hat = self.model(HLM)
+            y_hat = self.model(batch)
             loss = torch.sqrt(self.loss(y_hat, HLM))
             
         self.rmse_log.append(loss.item())
-         
-    
-            
-            
-        
-        
-        
-        
-        return 
         
