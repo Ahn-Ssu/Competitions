@@ -52,22 +52,24 @@ class GIN(nn.Module):
         self.norm3 = geonn.GraphNorm(hidden_dims[2])
         self.norm4 = geonn.GraphNorm(hidden_dims[3])
 
-    def forward(self, g):
+        self.act    = nn.SELU()
 
-        h1 = self.conv1(g.x, g.edge_index, g.edge_attr)
+
+    def forward(self, g):
+        h1 = self.conv1(g.x, g.edge_index) # found bug, if we use g.edge_attr, then the codes will not work
         h1 = self.norm1(h1, g.batch)
         h1 = self.act(h1)
 
-        h2 = self.conv2(h1, g.edge_index, g.edge_attr)
+        h2 = self.conv2(h1, g.edge_index)
         h2 = self.norm2(h2, g.batch)
         h2 = self.act(h2)
 
-        h3 = self.conv3(h2, g.edge_index, g.edge_attr)
+        h3 = self.conv3(h2, g.edge_index)
         h3 = self.norm3(h3, g.batch)
         h3 = self.act(h3)
 
 
-        h4 = self.conv4(h3, g.edge_index, g.edge_attr)
+        h4 = self.conv4(h3, g.edge_index)
         h4 = self.norm4(h4, g.batch)
         h4 = self.act(h4)
 
