@@ -67,10 +67,10 @@ class Chemcial_dataset(Dataset):
             MLM = None
             HLM = None
             
-        atomic_feature = torch.tensor(atomic_feature, dtype=torch.long)
-        molecular_feature = torch.tensor(molecular_feature, dtype=torch.long)
-        MLM = torch.tensor(MLM, dtype=torch.long)
-        HLM = torch.tensor(HLM, dtype=torch.long)
+        atomic_feature = torch.tensor(atomic_feature, dtype=torch.float)
+        molecular_feature = torch.tensor(molecular_feature, dtype=torch.float).view(1, -1)
+        MLM = torch.tensor(MLM, dtype=torch.float)
+        HLM = torch.tensor(HLM, dtype=torch.float)
         
         return Data(x=atomic_feature, mol_f=molecular_feature,
                     edge_index=edge_index, edge_attr=edge_attr,
@@ -86,7 +86,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
                  k_idx: int =1, # fold index
                  num_split: int = 5, # fold number, if k=1 then return the whole data
                  split_seed: int = 41,
-                 batch_size: int = 2, 
+                 batch_size: int = 1, 
                  num_workers: int = 0,
                  pin_memory: bool = False,
                  persistent_workers: bool=True,
