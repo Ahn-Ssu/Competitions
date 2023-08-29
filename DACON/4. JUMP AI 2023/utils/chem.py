@@ -7,6 +7,8 @@ from torch_geometric.utils.sparse import dense_to_sparse
 
 import numpy as np
 
+from sklearn.preprocessing import StandardScaler
+
 
 class Chemical_feature_generator():
     def __init__(self) -> None:
@@ -20,13 +22,18 @@ class Chemical_feature_generator():
                         # Molar Heat Capacity, Specific Heat Capacity: These properties relate to heat transfer but might not be directly tied to metabolic stability.
         self.mendeleev_atomic_f_table = fetch_table('elements')[mendeleev_atomic_f]
         
-    
+        train_atom_idx = [5, 7, 6, 15, 8, 16, 34, 33, 52] # test idx = [5, 6, 15, 7, 16, 34, 8, 14]
+        train_table = self.mendeleev_atomic_f_table.loc[train_atom_idx]
+        scaler = StandardScaler()
+        scaler.fit(train_table)
+        
+        self.mendeleev_atomic_f_table.iloc[:, :] = scaler.transform(self.mendeleev_atomic_f_table)
 
     def get_atomic_features(self,atom):
 
         atomic_num = atom.GetAtomicNum() - 1 # -1 is offset
         mendel_atom_f = self.mendeleev_atomic_f_table.loc[atomic_num]
-        mendel_atom_f.is_radioactive = mendel_atom_f.is_radioactive.astype(int)
+        # mendel_atom_f.is_radioactive = mendel_atom_f.is_radioactive.astype(int)
         mendel_atom_f = mendel_atom_f.to_numpy().astype(np.float32)
 
         rdkit_atom_f = [atom.GetDegree(),
