@@ -12,7 +12,6 @@ def run():
 
     from lightning_fabric.utilities import seed
     from pytorch_lightning import Trainer
-    from pytorch_lightning.strategies.ddp import DDPStrategy
     from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
     from pytorch_lightning.loggers import TensorBoardLogger
     from pytorch_lightning.profilers import PyTorchProfiler
@@ -25,6 +24,7 @@ def run():
                             EnsureTyped,
                             ScaleIntensityRanged,
                             Orientationd,
+                            Spacingd,
                             CropForegroundd, 
                             RandSpatialCropd,
                             
@@ -35,24 +35,27 @@ def run():
                             
                         )
 
-    from dataloader import KFold_pl_DataModule
+    from SSL_dataloader import KFold_pl_DataModule
     from model import unet_baseline
     from modelgenesis_pl import Modelgenesis_network
 
     args = EasyDict()
 
-    args.img_size = 128
+    args.img_size = (128, 128, 96)
     args.batch_size = 8
     args.epoch = 1000
-    args.init_lr = 1e-2
+    args.init_lr = 1e-3
     args.lr_dec_rate = 0.001 
     args.weight_decay = 0.05
 
     # preprocesing cfg
     args.CT_min = -1000
     args.CT_max = 1000
+    args.CT_clip = False
     args.PET_min = 0
-    args.PET_max = 40 
+    args.PET_max = 40
+    args.PET_max2 = 20
+    args.PET_clip = False
 
     # model cfg
     args.hidden_dims = [32,32,64,128,256]
@@ -80,73 +83,69 @@ def run():
     seed.seed_everything(args.seed)
 
 
-    all_key = ['ct','pet','label']
 
     transform = Compose([
-        LoadImaged(keys=all_key, ensure_channel_first=True),
-        EnsureTyped(keys=all_key, track_meta=False),
-        Orientationd(keys=all_key, axcodes='RAS'),
-        ScaleIntensityRanged(keys='ct',
-                                 a_min=args.CT_min, a_max=args.CT_max,
-                                 b_min=0, b_max=1, clip=True),
-        ScaleIntensityRanged(keys='pet',
-                                a_min=args.PET_min, a_max=args.PET_max,
-                                b_min=0, b_max=1, clip=True),
-
-        CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
-        RandSpatialCropd(keys=all_key, roi_size=[args.img_size,args.img_size,args.img_size], random_size=False)
-    ]
-    )
-    
-    PET_SSL_transform = Compose([
-        LoadImaged(keys=all_key, ensure_channel_first=True),
-        EnsureTyped(keys=all_key, track_meta=False),
-        Orientationd(keys=all_key, axcodes='RAS'),
-        ScaleIntensityRanged(keys='ct',
-                                 a_min=args.CT_min, a_max=args.CT_max,
-                                 b_min=0, b_max=1, clip=True),
-        ScaleIntensityRanged(keys='pet',
-                                a_min=args.PET_min, a_max=args.PET_max,
-                                b_min=0, b_max=1, clip=True),
-
-        CropForegroundd(keys=all_key, source_key='pet'), # source_key 'ct' or 'pet'
-        RandSpatialCropd(keys=all_key, roi_size=[args.img_size,args.img_size,args.img_size], random_size=False),
-        
+        LoadImaged(keys='img', ensure_channel_first=True),
+        EnsureTyped(keys='img', track_meta=True), # when we use spaingd, track_meta shuold be true
+        Spacingd(keys='img',
+                 pixdim=(2.03642,  2.03642, 3.), mode=("bilinear")),
+        Orientationd(keys='img', axcodes='RAS'),
+        OneOf([
+                ScaleIntensityRanged(keys='img',
+                                    a_min=args.PET_min, a_max=args.PET_max,
+                                    b_min=0, b_max=1, clip=args.PET_clip),
+                ScaleIntensityRanged(keys='img',
+                                    a_min=args.PET_min, a_max=args.PET_max2,
+                                    b_min=0, b_max=1, clip=args.PET_clip),    
+            ]),
+        CropForegroundd(keys='img', source_key='img'), # source_key 'ct' or 'pet'
+        RandSpatialCropd(keys='img', roi_size=args.img_size, random_size=False),
         # flip, pixel shuffling, in-out painting 
-        RandFlipd(keys=all_key, prob=args.genesis_args.flip_rate, spatial_axis=0), 
-        RandFlipd(keys=all_key, prob=args.genesis_args.flip_rate, spatial_axis=1),
-        RandFlipd(keys=all_key, prob=args.genesis_args.flip_rate, spatial_axis=2),
-        
-        RandCoarseShuffled(keys='pet',
+        RandFlipd(keys='img', prob=args.genesis_args.flip_rate, spatial_axis=0), 
+        RandFlipd(keys='img', prob=args.genesis_args.flip_rate, spatial_axis=1),
+        RandFlipd(keys='img', prob=args.genesis_args.flip_rate, spatial_axis=2),
+        ]) if args.genesis_args.modality == 'PET' else Compose([
+        LoadImaged(keys='img', ensure_channel_first=True),
+        EnsureTyped(keys='img', track_meta=True), # when we use spaingd, track_meta shuold be true
+        Spacingd(keys='img',
+                 pixdim=(2.03642,  2.03642, 3.), mode=("bilinear")),
+        Orientationd(keys='img', axcodes='RAS'),
+        ScaleIntensityRanged(keys='img',
+                                 a_min=args.CT_min, a_max=args.CT_max,
+                                 b_min=0, b_max=1, clip=args.CT_clip),
+        CropForegroundd(keys='img', source_key='img'),
+        RandSpatialCropd(keys='img', roi_size=args.img_size, random_size=False),
+    ]    )
+    
+    PET_additional_transform = None if args.genesis_args.modality == 'CT' else Compose([
+        RandCoarseShuffled(keys='img',
                            prob=args.genesis_args.local_rate,
                         holes=100,
                         max_holes=10000,
                         spatial_size=[1,1,1], # minimum size
-                        max_spatial_size=[args.img_size//10, args.img_size//10, args.img_size//10]),
+                        max_spatial_size=[args.img_size[0]//10, args.img_size[1]//10, args.img_size[2]//10]),
         
-        OneOf([RandGaussianNoised(keys='pet', prob=args.genesis_args.noise_rate, 
+        OneOf([RandGaussianNoised(keys='img', prob=args.genesis_args.noise_rate, 
                                   mean=random.uniform(0.0, 0.1) if random.random() > 0.5 else 0 , 
-                                  std=random.uniform(0.001, 0.1)) for i in range(20)]),
+                                  std=random.uniform(0.001, 0.1)) for i in range(100)]),
         
-        OneOf([RandCoarseDropoutd(keys='pet', prob=args.genesis_args.paint_rate,
+        OneOf([RandCoarseDropoutd(keys='img', prob=args.genesis_args.paint_rate,
                           holes=3,
                           max_holes=5,
                           fill_value=(0, 1),
-                          spatial_size=[args.img_size//6, args.img_size//6, args.img_size//6],
-                          max_spatial_size=[args.img_size//3, args.img_size//3, args.img_size//3],
+                          spatial_size=[args.img_size[0]//6, args.img_size[1]//6, args.img_size[2]//6],
+                          max_spatial_size=[args.img_size[0]//3, args.img_size[1]//3, args.img_size[2]//3],
                           dropout_holes=True # inner cutout
                           ),
-               RandCoarseDropoutd(keys='pet',prob=args.genesis_args.paint_rate,
+               RandCoarseDropoutd(keys='img',prob=args.genesis_args.paint_rate,
                           holes=3,
                           max_holes=5,
                           fill_value=(0, 1),
-                          spatial_size=[3*args.img_size//7, 3*args.img_size//7, 3*args.img_size//7],
-                          max_spatial_size=[4*args.img_size//7, 4*args.img_size//7, 4*args.img_size//7],
+                          spatial_size=[3*args.img_size[0]//7, 3*args.img_size[1]//7, 3*args.img_size[2]//7],
+                          max_spatial_size=[4*args.img_size[0]//7, 4*args.img_size[1]//7, 4*args.img_size[2]//7],
                           dropout_holes=False # outer cutout
                           )
                ], weights=(0.8, 0.2))
-        
-        
     ]
     )
 
@@ -158,16 +157,16 @@ def run():
     for fold_idx in range(num_split):
 
         pl_dataloder = KFold_pl_DataModule(
-                            data_dir='/root/Competitions/MICCAI/AutoPET2023/data/train',
+                            modality=args.genesis_args.modality,
                             k_idx=fold_idx,
                             num_split=num_split,
                             split_seed=args.seed,
                             batch_size=args.batch_size,
-                            num_workers=8,
+                            num_workers=10,
                             pin_memory=False,
                             persistent_workers=True,
-                            train_transform=PET_SSL_transform,
-                            val_transform=transform
+                            train_transform=transform,
+                            additional=PET_additional_transform,
                         )
 
         model = unet_baseline.UNet(
@@ -197,18 +196,18 @@ def run():
                             save_dir='.',
                             default_hp_metric=False,
                             # version='LEARNING CHECK',
-                            version=f'10.ModelGenesis/{_day}/PET-only AutoPET data'
+                            version=f'10.ModelGenesis/{_day}/PET-AutoPET+Extra data'
                         )
         profiler = PyTorchProfiler()
 
         trainer = Trainer(
                     max_epochs=args.epoch,
-                    devices=[0,1],
+                    devices=[0],
                     accelerator='gpu',
                     # precision='16-mixed',
                     # strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     callbacks=[lr_monitor, checkpoint_callback],
-                    check_val_every_n_epoch=3,
+                    check_val_every_n_epoch=5,
                     # log_every_n_steps=1,
                     logger=logger,
                     # auto_lr_find=True

@@ -25,8 +25,10 @@ class Modelgenesis_network(pl.LightningModule):
         self.model = network
         self.args = args
         self.loss = nn.MSELoss()
+        self.modality = args.genesis_args.modality
         # self.loss = SSIMLoss() # Since the author said MSELoss is enough
         self.loss_log = []
+        
     
     def configure_optimizers(self) -> Any:
         optimizer = AdamP(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=self.args.weight_decay)
@@ -34,8 +36,12 @@ class Modelgenesis_network(pl.LightningModule):
         return [optimizer], [scheduler]
     
     def training_step(self, batch, **kwargs: Any) -> STEP_OUTPUT:
-        ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
-        x, y = get_pair(img=pet, batch_size=self.args.batch_size,
+        
+        if self.modality == 'PET':
+            y = batch['origin']
+            x = batch['img']
+        else:
+            x, y = get_pair(img=y['img'], batch_size=self.args.batch_size,
                         config=self.args.genesis_args)
         
         y_hat = self.model(x)
@@ -55,16 +61,22 @@ class Modelgenesis_network(pl.LightningModule):
         self.loss_log.clear()
     
     def _shared_eval_step(self, batch, batch_idx):
-        ct, pet, seg_y, clf_y = batch['ct'], batch['pet'], batch['label'], batch['diagnosis']
-        y_hat = self.model(pet)
-        loss = self.loss(y_hat, pet)
+        if self.modality == 'PET':
+            y = batch['origin']
+            x = batch['img']
+        else:
+            x, y = get_pair(img=y['img'], batch_size=self.args.batch_size,
+                        config=self.args.genesis_args)
+            
+        y_hat = self.model(x)
+        loss = self.loss(y_hat, y)
         self.loss_log.append(loss.item())
         
         if self.current_epoch % 10 == 0 and batch_idx % 20 == 0:
-            self.log_img_on_TB(ct, pet, None, y_hat, batch_idx)
+            self.log_img_on_TB(y, y_hat, batch_idx)
         
 
-    def log_img_on_TB(self, ct, pet, seg_y, pred, batch_idx) -> None:
+    def log_img_on_TB(self, y, y_hat, batch_idx) -> None:
          
         # Get tensorboard logger
         tb_logger = None
@@ -76,22 +88,11 @@ class Modelgenesis_network(pl.LightningModule):
         if tb_logger is None:
                 raise ValueError('TensorBoard Logger not found')
        
-        # Log the images (Give them different names)
-        # [400, 400, D] -> [~250, ~250, D]
-        # print(ct.shape)    # torch.Size([1, 1, 347, 347, 232])
-        # print(pet.shape)   # torch.Size([1, 1, 347, 347, 232]) 
-        # print(seg_y.shape) # torch.Size([1, 1, 347, 347, 232])
-        # print(pred.size()) # torch.Size([1, 347, 347, 232])
+        y = y.squeeze(0)
+        y_hat = y_hat.squeeze(0)
+        target_idx = 64
 
-        ct = ct.squeeze(0)
-        pet = pet.squeeze(0)
-        seg_y = seg_y.squeeze(0)
-
-        # C, W, H, D = ct.size()
-        target_idx = 200
-
-        for vol_idx in target_idx:
-            # add_images('title', data', dataformats='NCHW)
-            tb_logger.add_image(f"CT_input/BZ[{batch_idx}]_{vol_idx}", ct[..., vol_idx, :], dataformats='CHW')
-            # tb_logger.add_image(f"PET_input/BZ[{batch_idx}]_{vol_idx}", pet[..., vol_idx, :], dataformats='CHW')
-            tb_logger.add_image(f"y_hat/BZ[{batch_idx}]_{vol_idx}", pred[..., vol_idx, :], dataformats='CHW')
+        # add_images('title', data', dataformats='NCHW)
+        tb_logger.add_image(f"input/BZ[{batch_idx}]_{target_idx}", y[..., target_idx, :], dataformats='CHW')
+        # tb_logger.add_image(f"PET_input/BZ[{batch_idx}]_{target_idx}", pet[..., target_idx, :], dataformats='CHW')
+        tb_logger.add_image(f"pred/BZ[{batch_idx}]_{target_idx}", y_hat[..., target_idx, :], dataformats='CHW')
