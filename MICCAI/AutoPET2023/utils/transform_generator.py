@@ -18,7 +18,7 @@ from monai.transforms import (
                             RandScaleIntensityd,
                             RandAdjustContrastd, # gamma correction
                             
-                            Resized,
+                            Spacingd,
                             RandGaussianNoised,
                             RandGaussianSmoothd,
                             RandShiftIntensityd,
@@ -68,15 +68,12 @@ class MONAI_transformerd():
         # lv.2
         if aug_Lv > 1: 
             augmentation_cfg.low_resolution_prob = 0.2
-            augmentation_cfg.low_resolution_low = 0.5
-            augmentation_cfg.low_resolution_high = 0.9
+            augmentation_cfg.low_resolution_min_ration = 0.4
             augmentation_cfg.noise_prob = 0.2
-            augmentation_cfg.noise_mean = 0.15
-            augmentation_cfg.noise_std = 0.1
             augmentation_cfg.blur_prob = 0.2
-            augmentation_cfg.sigma_range = (0.5, 1.5)
-            augmentation_cfg.shift_prob = 0.1
-            augmentation_cfg.shift_offsets = 0.2
+            augmentation_cfg.sigma_range = (0.25, 1.1)
+            augmentation_cfg.shift_prob = 0.2
+            augmentation_cfg.shift_offsets = (-0.1, 0.1)
         
         
         self.aug_Lv = aug_Lv
@@ -124,7 +121,7 @@ class MONAI_transformerd():
             aug_list = self._get_lv1_auglist(augmentation_cfg)
         
         if self.aug_Lv == 2 :
-            aug_list = self._get_lv1_auglist(augmentation_cfg) + self._get_lv2_auglist(augmentation_cfg) + self._get_lv3_auglist(augmentation_cfg)
+            aug_list = self._get_lv1_auglist(augmentation_cfg) + self._get_lv2_auglist(augmentation_cfg)
     
         if self.aug_Lv == 3 : 
             aug_list = self._get_lv1_auglist(augmentation_cfg) + self._get_lv2_auglist(augmentation_cfg) + self._get_lv3_auglist(augmentation_cfg)
@@ -147,7 +144,7 @@ class MONAI_transformerd():
         # intensity_cfg.img_size
         return [
             LoadImaged(keys=self.all_key, ensure_channel_first=True),
-            EnsureTyped(keys=self.all_key, track_meta=False), # for training track_meta=False, monai.data.set_track_meta(false)
+            EnsureTyped(keys=self.all_key, track_meta=True), # for training track_meta=False, monai.data.set_track_meta(false)
             Orientationd(keys=self.all_key, axcodes='RAS'),
             ScaleIntensityRanged(keys='ct',
                                  a_min=intensity_cfg.CT_min, a_max=intensity_cfg.CT_max,
@@ -192,8 +189,34 @@ class MONAI_transformerd():
             ]
         
     def _get_lv2_auglist(self, augmentation_cfg=None):
-        return
-    
+        H, W, D = (2.03642,  2.03642, 3.)
+        ratio =  augmentation_cfg.low_resolution_min_ration
+        offsets = [(np.random.uniform(0,H*ratio), np.random.uniform(0,D*ratio)) for _ in range(100)]
+        return [
+            # if you use low_resolution aug, track_meta = True
+            OneOf(
+                [
+                    Spacingd(keys=self.input_key,
+                             pixdim=(H, W, D), mode=("bilinear")),
+                    Compose([OneOf([Spacingd(keys=self.input_key,
+                                    pixdim=(2.03642 + HW_offset,  2.03642 + HW_offset, 3. + D_offset), mode=("bilinear"))
+                                    for HW_offset, D_offset in offsets]),
+                             Spacingd(keys=self.input_key,
+                                      pixdim=(H, W, D), mode=("bilinear"))
+                            ]),
+                ],
+                weights=[0.7, augmentation_cfg.low_resolution_prob] # 30% of low resolution
+            ),
+            OneOf([RandGaussianNoised(keys=self.input_key, prob=augmentation_cfg.noise_prob, 
+                                  mean=np.random.uniform(0.0, 0.1) if np.random.random() > 0.5 else 0 , 
+                                  std=np.random.uniform(0.001, 0.1)) for i in range(100)]),
+            RandGaussianSmoothd(keys=self.input_key, prob=augmentation_cfg.blur_prob,
+                                sigma_x=augmentation_cfg.sigma_range, sigma_y=augmentation_cfg.sigma_range,  sigma_z=augmentation_cfg.sigma_range),
+            RandShiftIntensityd(keys=self.input_key, prob=augmentation_cfg.shift_prob,
+                                offsets=augmentation_cfg.shift_offsets)
+        ]
+
+            
     def _get_lv3_auglist(self, augmentation_cfg=None):
         return
     
