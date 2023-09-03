@@ -18,6 +18,7 @@ from monai.transforms import (
                             RandScaleIntensityd,
                             RandAdjustContrastd, # gamma correction
                             
+                            Resized,
                             Spacingd,
                             RandGaussianNoised,
                             RandGaussianSmoothd,
@@ -191,7 +192,7 @@ class MONAI_transformerd():
     def _get_lv2_auglist(self, augmentation_cfg=None):
         H, W, D = (2.03642,  2.03642, 3.)
         ratio =  augmentation_cfg.low_resolution_min_ration
-        offsets = [(np.random.uniform(0,H*ratio), np.random.uniform(0,D*ratio)) for _ in range(100)]
+        offsets = [(round(np.random.uniform(0,H*ratio),3), round(np.random.uniform(0,D*ratio),3)) for _ in range(100)]
         return [
             # if you use low_resolution aug, track_meta = True
             OneOf(
@@ -202,10 +203,12 @@ class MONAI_transformerd():
                                     pixdim=(2.03642 + HW_offset,  2.03642 + HW_offset, 3. + D_offset), mode=("bilinear"))
                                     for HW_offset, D_offset in offsets]),
                              Spacingd(keys=self.input_key,
-                                      pixdim=(H, W, D), mode=("bilinear"))
+                                      pixdim=(H, W, D), mode=("bilinear")),
+                             Resized(keys=self.input_key, 
+                                     spatial_size=self.img_size)
                             ]),
                 ],
-                weights=[0.7, augmentation_cfg.low_resolution_prob] # 30% of low resolution
+                weights=[1. -augmentation_cfg.low_resolution_prob, augmentation_cfg.low_resolution_prob] # 30% of low resolution
             ),
             OneOf([RandGaussianNoised(keys=self.input_key, prob=augmentation_cfg.noise_prob, 
                                   mean=np.random.uniform(0.0, 0.1) if np.random.random() > 0.5 else 0 , 
