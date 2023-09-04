@@ -68,7 +68,7 @@ class MONAI_transformerd():
         
         # lv.2
         if aug_Lv > 1: 
-            augmentation_cfg.low_resolution_prob = 0.2
+            augmentation_cfg.low_resolution_prob = 0.3
             augmentation_cfg.low_resolution_min_ration = 0.4
             augmentation_cfg.noise_prob = 0.2
             augmentation_cfg.blur_prob = 0.2
@@ -145,7 +145,7 @@ class MONAI_transformerd():
         # intensity_cfg.img_size
         return [
             LoadImaged(keys=self.all_key, ensure_channel_first=True),
-            EnsureTyped(keys=self.all_key, track_meta=True), # for training track_meta=False, monai.data.set_track_meta(false)
+            EnsureTyped(keys=self.all_key, track_meta=False), # for training track_meta=False, monai.data.set_track_meta(false)
             Orientationd(keys=self.all_key, axcodes='RAS'),
             ScaleIntensityRanged(keys='ct',
                                  a_min=intensity_cfg.CT_min, a_max=intensity_cfg.CT_max,
@@ -190,20 +190,18 @@ class MONAI_transformerd():
             ]
         
     def _get_lv2_auglist(self, augmentation_cfg=None):
-        H, W, D = (2.03642,  2.03642, 3.)
+        H, W, D = self.img_size
         ratio =  augmentation_cfg.low_resolution_min_ration
-        offsets = [(round(np.random.uniform(0,H*ratio),3), round(np.random.uniform(0,D*ratio),3)) for _ in range(100)]
+        offsets = [(int(np.random.uniform(0,H*ratio)), int(np.random.uniform(0,D*ratio))) for _ in range(100)]
         return [
             # if you use low_resolution aug, track_meta = True
             OneOf(
                 [
-                    Spacingd(keys=self.input_key,
-                             pixdim=(H, W, D), mode=("bilinear")),
-                    Compose([OneOf([Spacingd(keys=self.input_key,
-                                    pixdim=(2.03642 + HW_offset,  2.03642 + HW_offset, 3. + D_offset), mode=("bilinear"))
+                    Resized(keys=self.input_key, 
+                                     spatial_size=self.img_size),
+                    Compose([OneOf([Resized(keys=self.input_key,
+                                            spatial_size=(H + HW_offset, W + HW_offset, D + D_offset))
                                     for HW_offset, D_offset in offsets]),
-                             Spacingd(keys=self.input_key,
-                                      pixdim=(H, W, D), mode=("bilinear")),
                              Resized(keys=self.input_key, 
                                      spatial_size=self.img_size)
                             ]),
