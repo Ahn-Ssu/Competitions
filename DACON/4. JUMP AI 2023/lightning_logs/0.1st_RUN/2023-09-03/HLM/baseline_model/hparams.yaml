@@ -1,0 +1,37 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    MLM: false
+    batch_size: 64
+    epoch: 1000
+    init_lr: 0.001
+    lr_dec_rate: 0.01
+    num_fp_f: 5235
+    seed: 41
+    server: mk3
+    train_label: HLM
+    weight_decay: 0.05
+    z_model_arch: "Net(\n  (fc1): Linear(in_features=5235, out_features=8096, bias=True)\n\
+      \  (fc2): Linear(in_features=8096, out_features=8096, bias=True)\n  (fc3): Linear(in_features=8096,\
+      \ out_features=8096, bias=True)\n  (fc_out): Linear(in_features=8096, out_features=1,\
+      \ bias=True)\n  (ln1): LayerNorm((8096,), eps=1e-05, elementwise_affine=True)\n\
+      \  (ln2): LayerNorm((8096,), eps=1e-05, elementwise_affine=True)\n  (ln3): LayerNorm((8096,),\
+      \ eps=1e-05, elementwise_affine=True)\n  (activation): LeakyReLU(negative_slope=0.01)\n\
+      \  (dropout): Dropout(p=0.8, inplace=False)\n)"
+  state:
+    MLM: false
+    batch_size: 64
+    epoch: 1000
+    init_lr: 0.001
+    lr_dec_rate: 0.01
+    num_fp_f: 5235
+    seed: 41
+    server: mk3
+    train_label: HLM
+    weight_decay: 0.05
+    z_model_arch: "Net(\n  (fc1): Linear(in_features=5235, out_features=8096, bias=True)\n\
+      \  (fc2): Linear(in_features=8096, out_features=8096, bias=True)\n  (fc3): Linear(in_features=8096,\
+      \ out_features=8096, bias=True)\n  (fc_out): Linear(in_features=8096, out_features=1,\
+      \ bias=True)\n  (ln1): LayerNorm((8096,), eps=1e-05, elementwise_affine=True)\n\
+      \  (ln2): LayerNorm((8096,), eps=1e-05, elementwise_affine=True)\n  (ln3): LayerNorm((8096,),\
+      \ eps=1e-05, elementwise_affine=True)\n  (activation): LeakyReLU(negative_slope=0.01)\n\
+      \  (dropout): Dropout(p=0.8, inplace=False)\n)"

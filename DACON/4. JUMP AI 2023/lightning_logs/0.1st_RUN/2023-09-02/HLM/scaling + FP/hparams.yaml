@@ -1,0 +1,105 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    FF_hidden_dim: 2048
+    MLM: false
+    batch_size: 64
+    d_model: 512
+    dropout_p: 0.09
+    epoch: 1000
+    gnn_hidden_dims: &id001
+    - 64
+    - 128
+    - 256
+    - 512
+    init_lr: 0.0001
+    lr_dec_rate: 0.01
+    num_atom_f: 34
+    num_fp_f: 5235
+    num_mol_f: 36
+    projection_dim: 6231
+    seed: 41
+    server: mk3
+    train_label: HLM
+    weight_decay: 0.05
+    z_model_arch: "Molp(\n  (gnn_encoder): GIN(\n    (conv1): SAGEConv(34, 64, aggr=add)\n\
+      \    (conv2): SAGEConv(64, 128, aggr=add)\n    (conv3): SAGEConv(128, 256, aggr=add)\n\
+      \    (conv4): SAGEConv(256, 512, aggr=add)\n    (norm1): GraphNorm(64)\n   \
+      \ (norm2): GraphNorm(128)\n    (norm3): GraphNorm(256)\n    (norm4): GraphNorm(512)\n\
+      \    (act): SELU()\n  )\n  (projection): Linear(in_features=6231, out_features=512,\
+      \ bias=True)\n  (proj_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \  (transformer): Transformer(\n    (encoder): TransformerEncoder(\n      (layers):\
+      \ ModuleList(\n        (0-5): 6 x TransformerEncoderLayer(\n          (self_attn):\
+      \ MultiheadAttention(\n            (out_proj): NonDynamicallyQuantizableLinear(in_features=512,\
+      \ out_features=512, bias=True)\n          )\n          (linear1): Linear(in_features=512,\
+      \ out_features=2048, bias=True)\n          (dropout): Dropout(p=0.09, inplace=False)\n\
+      \          (linear2): Linear(in_features=2048, out_features=512, bias=True)\n\
+      \          (norm1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \          (norm2): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \          (dropout1): Dropout(p=0.09, inplace=False)\n          (dropout2):\
+      \ Dropout(p=0.09, inplace=False)\n        )\n      )\n      (norm): LayerNorm((512,),\
+      \ eps=1e-05, elementwise_affine=True)\n    )\n    (decoder): TransformerDecoder(\n\
+      \      (layers): ModuleList(\n        (0-5): 6 x TransformerDecoderLayer(\n\
+      \          (self_attn): MultiheadAttention(\n            (out_proj): NonDynamicallyQuantizableLinear(in_features=512,\
+      \ out_features=512, bias=True)\n          )\n          (multihead_attn): MultiheadAttention(\n\
+      \            (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512,\
+      \ bias=True)\n          )\n          (linear1): Linear(in_features=512, out_features=2048,\
+      \ bias=True)\n          (dropout): Dropout(p=0.09, inplace=False)\n        \
+      \  (linear2): Linear(in_features=2048, out_features=512, bias=True)\n      \
+      \    (norm1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n      \
+      \    (norm2): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n      \
+      \    (norm3): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n      \
+      \    (dropout1): Dropout(p=0.09, inplace=False)\n          (dropout2): Dropout(p=0.09,\
+      \ inplace=False)\n          (dropout3): Dropout(p=0.09, inplace=False)\n   \
+      \     )\n      )\n      (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \    )\n  )\n  (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \  (out): Linear(in_features=512, out_features=1, bias=True)\n)"
+  state:
+    FF_hidden_dim: 2048
+    MLM: false
+    batch_size: 64
+    d_model: 512
+    dropout_p: 0.09
+    epoch: 1000
+    gnn_hidden_dims: *id001
+    init_lr: 0.0001
+    lr_dec_rate: 0.01
+    num_atom_f: 34
+    num_fp_f: 5235
+    num_mol_f: 36
+    projection_dim: 6231
+    seed: 41
+    server: mk3
+    train_label: HLM
+    weight_decay: 0.05
+    z_model_arch: "Molp(\n  (gnn_encoder): GIN(\n    (conv1): SAGEConv(34, 64, aggr=add)\n\
+      \    (conv2): SAGEConv(64, 128, aggr=add)\n    (conv3): SAGEConv(128, 256, aggr=add)\n\
+      \    (conv4): SAGEConv(256, 512, aggr=add)\n    (norm1): GraphNorm(64)\n   \
+      \ (norm2): GraphNorm(128)\n    (norm3): GraphNorm(256)\n    (norm4): GraphNorm(512)\n\
+      \    (act): SELU()\n  )\n  (projection): Linear(in_features=6231, out_features=512,\
+      \ bias=True)\n  (proj_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \  (transformer): Transformer(\n    (encoder): TransformerEncoder(\n      (layers):\
+      \ ModuleList(\n        (0-5): 6 x TransformerEncoderLayer(\n          (self_attn):\
+      \ MultiheadAttention(\n            (out_proj): NonDynamicallyQuantizableLinear(in_features=512,\
+      \ out_features=512, bias=True)\n          )\n          (linear1): Linear(in_features=512,\
+      \ out_features=2048, bias=True)\n          (dropout): Dropout(p=0.09, inplace=False)\n\
+      \          (linear2): Linear(in_features=2048, out_features=512, bias=True)\n\
+      \          (norm1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \          (norm2): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \          (dropout1): Dropout(p=0.09, inplace=False)\n          (dropout2):\
+      \ Dropout(p=0.09, inplace=False)\n        )\n      )\n      (norm): LayerNorm((512,),\
+      \ eps=1e-05, elementwise_affine=True)\n    )\n    (decoder): TransformerDecoder(\n\
+      \      (layers): ModuleList(\n        (0-5): 6 x TransformerDecoderLayer(\n\
+      \          (self_attn): MultiheadAttention(\n            (out_proj): NonDynamicallyQuantizableLinear(in_features=512,\
+      \ out_features=512, bias=True)\n          )\n          (multihead_attn): MultiheadAttention(\n\
+      \            (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512,\
+      \ bias=True)\n          )\n          (linear1): Linear(in_features=512, out_features=2048,\
+      \ bias=True)\n          (dropout): Dropout(p=0.09, inplace=False)\n        \
+      \  (linear2): Linear(in_features=2048, out_features=512, bias=True)\n      \
+      \    (norm1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n      \
+      \    (norm2): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n      \
+      \    (norm3): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n      \
+      \    (dropout1): Dropout(p=0.09, inplace=False)\n          (dropout2): Dropout(p=0.09,\
+      \ inplace=False)\n          (dropout3): Dropout(p=0.09, inplace=False)\n   \
+      \     )\n      )\n      (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \    )\n  )\n  (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n\
+      \  (out): Linear(in_features=512, out_features=1, bias=True)\n)"
