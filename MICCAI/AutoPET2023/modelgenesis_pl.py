@@ -41,7 +41,7 @@ class Modelgenesis_network(pl.LightningModule):
             y = batch['origin']
             x = batch['img']
         else:
-            x, y = get_pair(img=y['img'], batch_size=self.args.batch_size,
+            x, y = get_pair(img=batch['img'], batch_size=self.args.batch_size,
                         config=self.args.genesis_args)
         
         y_hat = self.model(x)
@@ -65,18 +65,18 @@ class Modelgenesis_network(pl.LightningModule):
             y = batch['origin']
             x = batch['img']
         else:
-            x, y = get_pair(img=y['img'], batch_size=self.args.batch_size,
+            x, y = get_pair(img=batch['img'], batch_size=self.args.batch_size,
                         config=self.args.genesis_args)
             
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
         self.loss_log.append(loss.item())
         
-        if self.current_epoch % 10 == 0 and batch_idx % 20 == 0:
-            self.log_img_on_TB(y, y_hat, batch_idx)
+        # if self.current_epoch % 10 == 0:
+        self.log_img_on_TB(x, y, y_hat, batch_idx)
         
 
-    def log_img_on_TB(self, y, y_hat, batch_idx) -> None:
+    def log_img_on_TB(self, x, y, y_hat, batch_idx) -> None:
          
         # Get tensorboard logger
         tb_logger = None
@@ -88,11 +88,20 @@ class Modelgenesis_network(pl.LightningModule):
         if tb_logger is None:
                 raise ValueError('TensorBoard Logger not found')
        
-        y = y.squeeze(0)
-        y_hat = y_hat.squeeze(0)
         target_idx = 64
-
+        
+        # tag, img_tensor, global_step=None#
         # add_images('title', data', dataformats='NCHW)
-        tb_logger.add_image(f"input/BZ[{batch_idx}]_{target_idx}", y[..., target_idx, :], dataformats='CHW')
+        tb_logger.add_image(tag=f"input/BZ[{batch_idx}]_{target_idx}",
+                            img_tensor= x[..., target_idx, :],
+                            global_step=self.current_epoch, 
+                            dataformats='NCHW')
+        tb_logger.add_image(tag=f"GT/BZ[{batch_idx}]_{target_idx}",
+                            img_tensor= y[..., target_idx, :],
+                            global_step=self.current_epoch, 
+                            dataformats='NCHW')
         # tb_logger.add_image(f"PET_input/BZ[{batch_idx}]_{target_idx}", pet[..., target_idx, :], dataformats='CHW')
-        tb_logger.add_image(f"pred/BZ[{batch_idx}]_{target_idx}", y_hat[..., target_idx, :], dataformats='CHW')
+        tb_logger.add_image(tag=f"pred/BZ[{batch_idx}]_{target_idx}",
+                            img_tensor= y_hat[..., target_idx, :],
+                            global_step=self.current_epoch, 
+                            dataformats='NCHW')

@@ -42,6 +42,8 @@ class SSL_PETCT_dataset(Dataset):
 
         if isinstance(data_d, list):
                 data_d = data_d[0]
+                
+        # print(data_d['img'].shape)
         return data_d
     
 
@@ -75,10 +77,10 @@ class KFold_pl_DataModule(pl.LightningDataModule):
                 ssl_file_paths = glob.glob('/root/Competitions/MICCAI/AutoPET2023/data/SSL_PET/*/*/*/*')
                 autopet_paths = glob.glob('/root/Competitions/MICCAI/AutoPET2023/data/train/*/*/SUV.nii.gz')
             elif self.hparams.modality == 'CT':
-                ssl_file_paths = glob.glob('/root/Competitions/MICCAI/AutoPET2023/data/SSL_CT/*/*/*/*')
-                autopet_paths = glob.glob('/root/Competitions/MICCAI/AutoPET2023/data/train/*/*/SUV.nii.gz')
+                # ssl_file_paths = glob.glob('/root/Competitions/MICCAI/AutoPET2023/data/SSL_CT/*/*/*/CT.nii.gz')
+                autopet_paths = glob.glob('/root/Competitions/MICCAI/AutoPET2023/data/train/*/*/CTres.nii.gz')
             
-            file_paths = autopet_paths + ssl_file_paths
+            file_paths = autopet_paths #+ #ssl_file_paths
 
             df = pd.DataFrame(columns=['img_path', 'diagnosis'])
             df['img_path'] = file_paths
@@ -108,7 +110,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
                           
     def val_dataloader(self):
         return DataLoader(self.val_data,
-                          batch_size=1, # self.hparams.batch_size, # when PT -> bz else 1 
+                          batch_size=8, # self.hparams.batch_size, # when PT -> bz else 1 
                           shuffle=False,
                           num_workers=self.hparams.num_workers,
                           persistent_workers=self.hparams.persistent_workers,

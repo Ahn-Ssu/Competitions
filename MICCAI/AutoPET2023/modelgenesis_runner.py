@@ -82,8 +82,6 @@ def run():
     args.server = 'mk4'
     seed.seed_everything(args.seed)
 
-
-
     transform = Compose([
         LoadImaged(keys='img', ensure_channel_first=True),
         EnsureTyped(keys='img', track_meta=True), # when we use spaingd, track_meta shuold be true
@@ -197,6 +195,7 @@ def run():
                             default_hp_metric=False,
                             # version='LEARNING CHECK',
                             version=f'10.ModelGenesis/{_day}/PET-AutoPET+Extra data'
+                            # version='/root/Competitions/MICCAI/AutoPET2023/lightning_logs/10.ModelGenesis/2023-09-04/PET-AutoPET+Extra data'
                         )
         profiler = PyTorchProfiler()
 
@@ -223,7 +222,7 @@ def run():
                 datamodule= pl_dataloder,
                 # If we wanna keep training use this code line 
                 # 근데 잘 안되요잉
-                # ckpt_path='/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt'
+                ckpt_path='/root/Competitions/MICCAI/AutoPET2023/lightning_logs/10.ModelGenesis/2023-09-05/PET-AutoPET+Extra data(0904continued)/checkpoints/last.ckpt'
             )
         
         break;

@@ -364,6 +364,7 @@ def get_pair(img, batch_size, config, status="test"):
     y = img[index[:batch_size]]
     x = torch.clone(y).detach()
 
+    # print(batch_size, y.shape, x.shape)
     for n in range(batch_size):
         # apply augmentations
         x[n], y[n] = generate_single_pair(y[n], config=config)
