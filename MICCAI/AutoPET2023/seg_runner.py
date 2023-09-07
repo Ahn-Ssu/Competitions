@@ -9,7 +9,7 @@ def run():
     from lightning_fabric.utilities import seed
     from pytorch_lightning import Trainer
     from pytorch_lightning.strategies.ddp import DDPStrategy
-    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, StochasticWeightAveraging
     from pytorch_lightning.loggers import TensorBoardLogger
 
     from dataloader import KFold_pl_DataModule
@@ -22,9 +22,9 @@ def run():
     args = EasyDict()
 
     # training cfg
-    args.img_size = 128
-    args.batch_size = 1
-    args.epoch = 500
+    args.img_size = 192
+    args.batch_size = 2 # mk4 32bit-4Bz = 44201
+    args.epoch = 1000
     args.init_lr = 1e-4
     args.lr_dec_rate = 0.001 # 기존에 쓰던건 0.001로 많이 내려가게 했었음 
     args.weight_decay = 0.05
@@ -41,7 +41,7 @@ def run():
 
     all_key = ['ct','pet','label']
     input_key = ['ct','pet']
-    args.aug_Lv = 1
+    args.aug_Lv = 2
     transformer = MONAI_transformerd(aug_Lv=args.aug_Lv,
                                      all_key=all_key, input_key=input_key, 
                                      input_size=(args.img_size, args.img_size, args.img_size))
@@ -109,11 +109,14 @@ def run():
                                     # save_top_k=1,
                                     save_last=True
                                 )
+        SWA = StochasticWeightAveraging(swa_lrs=args.init_lr/2,
+                                        swa_epoch_start=0.6,
+                                        annealing_epochs=args.epoch//20)
         
         logger = TensorBoardLogger(
                             save_dir='.',
-                            version='LEARNING CHECK',
-                            # version=f'3.Augmentation/{_day}/mk4)Lv1 aug + softmax + PET-20-40 + corrected middle fusion',
+                            # version='LEARNING CHECK',
+                            version=f'5.SAW/{_day}/mk4)Lv2 aug + 192 + corrected middle fusion',
                             default_hp_metric=False
                         )
         
@@ -121,11 +124,11 @@ def run():
                     max_epochs=args.epoch,
                     devices=[0,1],
                     accelerator='gpu',
-                    # precision='16-mixed',
-                    strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
-                    callbacks=[lr_monitor, checkpoint_callback],
+                    precision='16-mixed',
+                    # strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
+                    callbacks=[lr_monitor, checkpoint_callback, SWA],
                     # check_val_every_n_epoch=2,
-                    check_val_every_n_epoch=3,
+                    check_val_every_n_epoch=10,
                     # log_every_n_steps=1,
                     logger=logger,
                     # auto_lr_find=True
