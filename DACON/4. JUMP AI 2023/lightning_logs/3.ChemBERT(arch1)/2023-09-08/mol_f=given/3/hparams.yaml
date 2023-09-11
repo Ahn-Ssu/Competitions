@@ -1,0 +1,88 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    BERT_out_dim: 377
+    FF_hidden_dim: 384
+    batch_size: 1
+    epoch: 40
+    init_lr: 5.0e-05
+    lr_dec_rate: 0.01
+    mol_feature_list: &id001
+    - given
+    num_mol_f: 7
+    out_dim: 2
+    projection_dim: 384
+    seed: 41
+    server: mk3
+    weight_decay: 0.05
+    z_model_arch: "ChemBERT(\n  (ChemBERT_encoder): RobertaForSequenceClassification(\n\
+      \    (roberta): RobertaModel(\n      (embeddings): RobertaEmbeddings(\n    \
+      \    (word_embeddings): Embedding(600, 384, padding_idx=1)\n        (position_embeddings):\
+      \ Embedding(515, 384, padding_idx=1)\n        (token_type_embeddings): Embedding(1,\
+      \ 384)\n        (LayerNorm): LayerNorm((384,), eps=1e-12, elementwise_affine=True)\n\
+      \        (dropout): Dropout(p=0.144, inplace=False)\n      )\n      (encoder):\
+      \ RobertaEncoder(\n        (layer): ModuleList(\n          (0-2): 3 x RobertaLayer(\n\
+      \            (attention): RobertaAttention(\n              (self): RobertaSelfAttention(\n\
+      \                (query): Linear(in_features=384, out_features=384, bias=True)\n\
+      \                (key): Linear(in_features=384, out_features=384, bias=True)\n\
+      \                (value): Linear(in_features=384, out_features=384, bias=True)\n\
+      \                (dropout): Dropout(p=0.109, inplace=False)\n              )\n\
+      \              (output): RobertaSelfOutput(\n                (dense): Linear(in_features=384,\
+      \ out_features=384, bias=True)\n                (LayerNorm): LayerNorm((384,),\
+      \ eps=1e-12, elementwise_affine=True)\n                (dropout): Dropout(p=0.144,\
+      \ inplace=False)\n              )\n            )\n            (intermediate):\
+      \ RobertaIntermediate(\n              (dense): Linear(in_features=384, out_features=464,\
+      \ bias=True)\n              (intermediate_act_fn): GELUActivation()\n      \
+      \      )\n            (output): RobertaOutput(\n              (dense): Linear(in_features=464,\
+      \ out_features=384, bias=True)\n              (LayerNorm): LayerNorm((384,),\
+      \ eps=1e-12, elementwise_affine=True)\n              (dropout): Dropout(p=0.144,\
+      \ inplace=False)\n            )\n          )\n        )\n      )\n    )\n  \
+      \  (classifier): RobertaClassificationHead(\n      (dense): Linear(in_features=384,\
+      \ out_features=384, bias=True)\n      (dropout): Dropout(p=0.144, inplace=False)\n\
+      \      (out_proj): Linear(in_features=384, out_features=377, bias=True)\n  \
+      \  )\n  )\n  (projection): Linear(in_features=384, out_features=384, bias=True)\n\
+      \  (ln): LayerNorm((384,), eps=1e-05, elementwise_affine=True)\n  (act): GELU(approximate='none')\n\
+      \  (drop): Dropout(p=0.144, inplace=False)\n  (out): Linear(in_features=384,\
+      \ out_features=2, bias=True)\n)"
+  state:
+    BERT_out_dim: 377
+    FF_hidden_dim: 384
+    batch_size: 1
+    epoch: 40
+    init_lr: 5.0e-05
+    lr_dec_rate: 0.01
+    mol_feature_list: *id001
+    num_mol_f: 7
+    out_dim: 2
+    projection_dim: 384
+    seed: 41
+    server: mk3
+    weight_decay: 0.05
+    z_model_arch: "ChemBERT(\n  (ChemBERT_encoder): RobertaForSequenceClassification(\n\
+      \    (roberta): RobertaModel(\n      (embeddings): RobertaEmbeddings(\n    \
+      \    (word_embeddings): Embedding(600, 384, padding_idx=1)\n        (position_embeddings):\
+      \ Embedding(515, 384, padding_idx=1)\n        (token_type_embeddings): Embedding(1,\
+      \ 384)\n        (LayerNorm): LayerNorm((384,), eps=1e-12, elementwise_affine=True)\n\
+      \        (dropout): Dropout(p=0.144, inplace=False)\n      )\n      (encoder):\
+      \ RobertaEncoder(\n        (layer): ModuleList(\n          (0-2): 3 x RobertaLayer(\n\
+      \            (attention): RobertaAttention(\n              (self): RobertaSelfAttention(\n\
+      \                (query): Linear(in_features=384, out_features=384, bias=True)\n\
+      \                (key): Linear(in_features=384, out_features=384, bias=True)\n\
+      \                (value): Linear(in_features=384, out_features=384, bias=True)\n\
+      \                (dropout): Dropout(p=0.109, inplace=False)\n              )\n\
+      \              (output): RobertaSelfOutput(\n                (dense): Linear(in_features=384,\
+      \ out_features=384, bias=True)\n                (LayerNorm): LayerNorm((384,),\
+      \ eps=1e-12, elementwise_affine=True)\n                (dropout): Dropout(p=0.144,\
+      \ inplace=False)\n              )\n            )\n            (intermediate):\
+      \ RobertaIntermediate(\n              (dense): Linear(in_features=384, out_features=464,\
+      \ bias=True)\n              (intermediate_act_fn): GELUActivation()\n      \
+      \      )\n            (output): RobertaOutput(\n              (dense): Linear(in_features=464,\
+      \ out_features=384, bias=True)\n              (LayerNorm): LayerNorm((384,),\
+      \ eps=1e-12, elementwise_affine=True)\n              (dropout): Dropout(p=0.144,\
+      \ inplace=False)\n            )\n          )\n        )\n      )\n    )\n  \
+      \  (classifier): RobertaClassificationHead(\n      (dense): Linear(in_features=384,\
+      \ out_features=384, bias=True)\n      (dropout): Dropout(p=0.144, inplace=False)\n\
+      \      (out_proj): Linear(in_features=384, out_features=377, bias=True)\n  \
+      \  )\n  )\n  (projection): Linear(in_features=384, out_features=384, bias=True)\n\
+      \  (ln): LayerNorm((384,), eps=1e-05, elementwise_affine=True)\n  (act): GELU(approximate='none')\n\
+      \  (drop): Dropout(p=0.144, inplace=False)\n  (out): Linear(in_features=384,\
+      \ out_features=2, bias=True)\n)"
