@@ -1,37 +1,41 @@
 def run():
     import os
-    os.environ["CUDA_VISIBLE_DEVICES"]= '1'
+    os.environ["CUDA_VISIBLE_DEVICES"]= '0'
     from easydict import EasyDict
     from datetime import datetime, timezone, timedelta
 
     from lightning_fabric.utilities import seed
     from pytorch_lightning import Trainer
     from pytorch_lightning.strategies.ddp import DDPStrategy
-    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+    from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor, StochasticWeightAveraging
     from pytorch_lightning.loggers import TensorBoardLogger
     
     from dataloader import KFold_pl_DataModule
-    from model import molp
+    from model import molp, baseline, ChemBERTa2
     from reg_pl import Regression_network
     
     # training cfg
     args = EasyDict()
-    args.batch_size = 128
-    args.epoch = 1000
-    args.init_lr = 1e-3
+    args.batch_size = 1
+    args.epoch = 40
+    args.init_lr = 5e-5
     args.lr_dec_rate = 0.01 # 기존에 쓰던건 0.001로 많이 내려가게 했었음 
     args.weight_decay = 0.05
     
-    args.MLM = True
-    args.train_label = 'MLM' if args.MLM else 'HLM'
+    # args.MLM = False
+    # args.train_label = 'MLM' if args.MLM else 'HLM'
 
     # model cfg
-    args.num_atom_f = 34
-    args.num_mol_f = 40
-    args.gnn_hidden_dims = [64, 128, 256, 512]
-    args.d_model = args.num_mol_f + sum(args.gnn_hidden_dims)
-    args.FF_hidden_dim = 2048
-    args.dropout_p = 0.09
+    # args.atomic_feature_list = ['SH', 'DMPNN'] 7, 29, 179
+    args.mol_feature_list = ['rdkit']
+    args.BERT_out_dim = 384 
+    args.num_mol_f = 179    # args.num_fp_f = 300 
+    # args.gnn_hidden_dims = [64, 128, 256, 512]
+    args.projection_dim = args.BERT_out_dim + args.num_mol_f
+    args.FF_hidden_dim = 384
+    args.out_dim = 2
+    # args.dropout_p = 0.09
+    
 
     args.seed = 41
     args.server = 'mk3'
@@ -39,7 +43,7 @@ def run():
     
     # No transformers yet 
     
-    num_split = 5
+    num_split = 10
     KST = timezone(timedelta(hours=9))
     start = datetime.now(KST)
     _day = str(start)[:10]
@@ -59,13 +63,17 @@ def run():
                             val_transform=None
                         )
         
-        model = molp.Molp(num_atom_f=args.num_atom_f,
-                          gnn_hidden_dims=args.gnn_hidden_dims,
-                          num_mol_f=args.num_mol_f,
-                          d_model=args.d_model,
-                          FF_hidden_dim=args.FF_hidden_dim,
-                          output_dim=1,
-                          dropout_p=args.dropout_p )
+        # model = molp.Molp(num_atom_f=args.num_atom_f,
+        #                   gnn_hidden_dims=args.gnn_hidden_dims,
+        #                   projection_dim=args.projection_dim,
+        #                   FF_hidden_dim=args.FF_hidden_dim,
+        #                   output_dim=args.out_dim
+        #                   )
+
+        model = ChemBERTa2.ChemBERT(BERT_out_dim=args.BERT_out_dim,
+                                    projection_dim=args.projection_dim,
+                                    hidden_dim=args.FF_hidden_dim,
+                                    out_dim=args.out_dim)
         
         args.z_model_arch = str(model)
         
@@ -78,11 +86,15 @@ def run():
                                     # save_top_k=1,
                                     save_last=True
                                 )
+        # SWA = StochasticWeightAveraging(swa_lrs=args.init_lr/2,
+        #                                 swa_epoch_start=0.4,
+        #                                 annealing_epochs=args.epoch//20)
         
         logger = TensorBoardLogger(
                             save_dir='.',
-                            version='LEARNING CHECK',
-                            # version=f'0.1st_RUN/{_day}/{args.train_label}/GIN+Transformer from scratch',
+                            # version='LEARNING CHECK',
+                            # version='anealing',
+                            version=f'4.expand/{_day}/mol_f=rdkit/{fold_idx}',
                             default_hp_metric=False
                         )
         
@@ -94,7 +106,7 @@ def run():
                     # strategy=DDPStrategy(find_unused_parameters=True), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     callbacks=[lr_monitor, checkpoint_callback],
                     # check_val_every_n_epoch=2,
-                    check_val_every_n_epoch=5,
+                    check_val_every_n_epoch=1,
                     # log_every_n_steps=1,
                     logger=logger,
                     # auto_lr_find=True
@@ -109,7 +121,8 @@ def run():
                 datamodule= pl_dataloder,
             )
         
-        break;
+        # break;
+        0
     # fold iteration END
     print(f'execution done --- time cost: [{datetime.now(KST) - start}]')
 

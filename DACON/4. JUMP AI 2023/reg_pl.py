@@ -32,14 +32,20 @@ class Regression_network(pl.LightningModule):
     
     
     def training_step(self, batch, **kwargs:Any) -> STEP_OUTPUT:
-        MLM, HLM = batch.MLM, batch.HLM
+        # MLM, HLM = batch.MLM, batch.HLM
         
-        if self.args.MLM:
-            y_hat = self.model(batch)
-            loss = torch.sqrt(self.loss(y_hat, MLM))
-        else:
-            y_hat = self.model(batch)
-            loss = torch.sqrt(self.loss(y_hat, HLM))
+        # if self.args.MLM:
+        #     y_hat = self.model(batch)
+        #     loss = torch.sqrt(self.loss(y_hat, MLM))
+        # else:
+        #     y_hat = self.model(batch)
+        #     loss = torch.sqrt(self.loss(y_hat, HLM))
+        y = batch.y 
+        y_hat = self.model(batch)
+        y_hat = 100. * y_hat
+        loss1 = self.loss(y_hat[..., 0], y[..., 0])
+        loss2 = self.loss(y_hat[..., 1], y[..., 1])
+        loss = (loss1**0.5 + loss2**0.5)/2
             
         self.log('train_loss', loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
         return loss
@@ -50,20 +56,26 @@ class Regression_network(pl.LightningModule):
         
     def on_validation_batch_end(self, *args, **kwargs) -> None:
         val_loss = np.mean(self.rmse_log)
-        self.log_dict({f'val_loss': val_loss}, prog_bar=True)
+        self.log_dict({f'val_loss': val_loss}, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
         
         self.rmse_log.clear()
         
     def _shared_eval_step(self, batch, batch_idx):
         
-        MLM, HLM = batch.MLM, batch.HLM
+        # MLM, HLM = batch.MLM, batch.HLM
         
-        if self.args.MLM:
-            y_hat = self.model(batch)
-            loss = torch.sqrt(self.loss(y_hat, MLM))
-        else:
-            y_hat = self.model(batch)
-            loss = torch.sqrt(self.loss(y_hat, HLM))
+        # if self.args.MLM:
+        #     y_hat = self.model(batch)
+        #     loss = torch.sqrt(self.loss(y_hat, MLM))
+        # else:
+        #     y_hat = self.model(batch)
+        #     loss = torch.sqrt(self.loss(y_hat, HLM))
+        y = batch.y 
+        y_hat = self.model(batch)
+        y_hat = 100. * y_hat
+        loss1 = self.loss(y_hat[..., 0], y[..., 0])
+        loss2 = self.loss(y_hat[..., 1], y[..., 1])
+        loss = (loss1**0.5 + loss2**0.5)/2
             
         self.rmse_log.append(loss.item())
         
