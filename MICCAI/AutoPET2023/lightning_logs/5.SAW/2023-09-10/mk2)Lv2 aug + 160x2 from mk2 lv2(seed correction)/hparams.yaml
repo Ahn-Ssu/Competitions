@@ -1,0 +1,330 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    aug_Lv: 2
+    augmentation_cfg: &id006 !!python/object/new:easydict.EasyDict
+      dictitems:
+        blur_prob: 0.2
+        elastic_magnitude_range: &id001
+        - 100
+        - 400
+        elastic_prob: 0.2
+        elastic_sigma_range: &id002
+        - 5
+        - 13
+        flip_prob: 0.5
+        gamma_prob: 0.3
+        gamma_range: &id003
+        - 0.7
+        - 1.5
+        low_resolution_min_ration: 0.4
+        low_resolution_prob: 0.3
+        noise_prob: 0.2
+        rotation_degree: 0.2617993877991494
+        rotation_prob: 0.2
+        scaling_fator: 0.25
+        scaling_prob: 0.2
+        shift_offsets: &id004
+        - -0.1
+        - 0.1
+        shift_prob: 0.2
+        sigma_range: &id005
+        - 0.25
+        - 1.1
+      state:
+        blur_prob: 0.2
+        elastic_magnitude_range: *id001
+        elastic_prob: 0.2
+        elastic_sigma_range: *id002
+        flip_prob: 0.5
+        gamma_prob: 0.3
+        gamma_range: *id003
+        low_resolution_min_ration: 0.4
+        low_resolution_prob: 0.3
+        noise_prob: 0.2
+        rotation_degree: 0.2617993877991494
+        rotation_prob: 0.2
+        scaling_fator: 0.25
+        scaling_prob: 0.2
+        shift_offsets: *id004
+        shift_prob: 0.2
+        sigma_range: *id005
+    batch_size: 2
+    dropout_p: 0.0
+    epoch: 1000
+    hidden_dims: &id007
+    - 32
+    - 32
+    - 64
+    - 128
+    - 256
+    img_size: 160
+    init_lr: 0.0001
+    intensity_cfg: &id008 !!python/object/new:easydict.EasyDict
+      dictitems:
+        CT_clip: true
+        CT_max: 1000
+        CT_min: -1000
+        PET_clip: false
+        PET_max: 40
+        PET_max2: 20
+        PET_min: 0
+      state:
+        CT_clip: true
+        CT_max: 1000
+        CT_min: -1000
+        PET_clip: false
+        PET_max: 40
+        PET_max2: 20
+        PET_min: 0
+    is_randAug: false
+    lr_dec_rate: 0.001
+    seed: 41
+    server: mk2
+    use_MS: false
+    weight_decay: 0.05
+    z_model_arch: "UNet_middleF(\n  (PET_encoder): encoder(\n    (pool): MaxPool3d(kernel_size=2,\
+      \ stride=2, padding=0, dilation=1, ceil_mode=False)\n    (layer1): Sequential(\n\
+      \      (0): ConvBlock(\n        (conv): Conv3d(1, 32, kernel_size=(3, 3, 3),\
+      \ stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(32,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer2): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(32,\
+      \ 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer3):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(32, 64, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(64,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer4): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(64, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(128,\
+      \ 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer5):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(128, 256, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(256,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(256, 256, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(256, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n  )\n  (CT_encoder): encoder(\n    (pool):\
+      \ MaxPool3d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)\n\
+      \    (layer1): Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(1,\
+      \ 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer2): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(32,\
+      \ 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer3):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(32, 64, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(64,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer4): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(64, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(128,\
+      \ 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer5):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(128, 256, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(256,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(256, 256, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(256, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n  )\n  (decoder): decoder(\n    (upconv1):\
+      \ ConvTranspose3d(512, 256, kernel_size=(2, 2, 2), stride=(2, 2, 2))\n    (layer1):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(512, 256, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(256,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(256, 256, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(256, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (upconv2): ConvTranspose3d(256, 128,\
+      \ kernel_size=(2, 2, 2), stride=(2, 2, 2))\n    (layer2): Sequential(\n    \
+      \  (0): ConvBlock(\n        (conv): Conv3d(256, 128, kernel_size=(3, 3, 3),\
+      \ stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(128,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(128, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (upconv3): ConvTranspose3d(128, 64,\
+      \ kernel_size=(2, 2, 2), stride=(2, 2, 2))\n    (layer3): Sequential(\n    \
+      \  (0): ConvBlock(\n        (conv): Conv3d(128, 64, kernel_size=(3, 3, 3), stride=(1,\
+      \ 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(64,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (upconv4): ConvTranspose3d(64, 64, kernel_size=(2,\
+      \ 2, 2), stride=(2, 2, 2))\n    (layer4): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(128, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(64,\
+      \ 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (fc):\
+      \ Conv3d(64, 2, kernel_size=(1, 1, 1), stride=(1, 1, 1))\n  )\n)"
+  state:
+    aug_Lv: 2
+    augmentation_cfg: *id006
+    batch_size: 2
+    dropout_p: 0.0
+    epoch: 1000
+    hidden_dims: *id007
+    img_size: 160
+    init_lr: 0.0001
+    intensity_cfg: *id008
+    is_randAug: false
+    lr_dec_rate: 0.001
+    seed: 41
+    server: mk2
+    use_MS: false
+    weight_decay: 0.05
+    z_model_arch: "UNet_middleF(\n  (PET_encoder): encoder(\n    (pool): MaxPool3d(kernel_size=2,\
+      \ stride=2, padding=0, dilation=1, ceil_mode=False)\n    (layer1): Sequential(\n\
+      \      (0): ConvBlock(\n        (conv): Conv3d(1, 32, kernel_size=(3, 3, 3),\
+      \ stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(32,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer2): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(32,\
+      \ 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer3):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(32, 64, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(64,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer4): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(64, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(128,\
+      \ 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer5):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(128, 256, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(256,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(256, 256, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(256, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n  )\n  (CT_encoder): encoder(\n    (pool):\
+      \ MaxPool3d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)\n\
+      \    (layer1): Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(1,\
+      \ 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer2): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(32, 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(32,\
+      \ 32, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer3):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(32, 64, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(64,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (layer4): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(64, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(128,\
+      \ 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (layer5):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(128, 256, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(256,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(256, 256, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(256, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n  )\n  (decoder): decoder(\n    (upconv1):\
+      \ ConvTranspose3d(512, 256, kernel_size=(2, 2, 2), stride=(2, 2, 2))\n    (layer1):\
+      \ Sequential(\n      (0): ConvBlock(\n        (conv): Conv3d(512, 256, kernel_size=(3,\
+      \ 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(256,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(256, 256, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(256, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (upconv2): ConvTranspose3d(256, 128,\
+      \ kernel_size=(2, 2, 2), stride=(2, 2, 2))\n    (layer2): Sequential(\n    \
+      \  (0): ConvBlock(\n        (conv): Conv3d(256, 128, kernel_size=(3, 3, 3),\
+      \ stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(128,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(128, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(128, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (upconv3): ConvTranspose3d(128, 64,\
+      \ kernel_size=(2, 2, 2), stride=(2, 2, 2))\n    (layer3): Sequential(\n    \
+      \  (0): ConvBlock(\n        (conv): Conv3d(128, 64, kernel_size=(3, 3, 3), stride=(1,\
+      \ 1, 1), padding=(1, 1, 1), bias=False)\n        (norm): InstanceNorm3d(64,\
+      \ eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n       \
+      \ (drop): Identity()\n        (act): SELU()\n      )\n      (1): ConvBlock(\n\
+      \        (conv): Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n    )\n    (upconv4): ConvTranspose3d(64, 64, kernel_size=(2,\
+      \ 2, 2), stride=(2, 2, 2))\n    (layer4): Sequential(\n      (0): ConvBlock(\n\
+      \        (conv): Conv3d(128, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1,\
+      \ 1, 1), bias=False)\n        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1,\
+      \ affine=True, track_running_stats=False)\n        (drop): Identity()\n    \
+      \    (act): SELU()\n      )\n      (1): ConvBlock(\n        (conv): Conv3d(64,\
+      \ 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)\n\
+      \        (norm): InstanceNorm3d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)\n\
+      \        (drop): Identity()\n        (act): SELU()\n      )\n    )\n    (fc):\
+      \ Conv3d(64, 2, kernel_size=(1, 1, 1), stride=(1, 1, 1))\n  )\n)"
