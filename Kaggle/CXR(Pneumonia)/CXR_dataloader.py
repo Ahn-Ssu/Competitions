@@ -2,6 +2,8 @@ import glob
 import pandas as pd
 import pytorch_lightning as pl
 
+import torch
+
 from sklearn import preprocessing
 from sklearn.model_selection import StratifiedKFold
 
@@ -27,7 +29,7 @@ class CXR_dataset(Dataset):
         
         path_d = {
             'image': path,
-            'y':cls
+            'y':torch.tensor(cls, dtype=torch.float)
         }
 
         try:
@@ -38,7 +40,12 @@ class CXR_dataset(Dataset):
 
         if isinstance(data_d, list):
                 data_d = data_d[0]
-
+                
+        c, h, w = data_d['image'].size()
+        
+        if c == 3 :
+            data_d['image'] = data_d['image'][0:1]
+            
         return data_d
     
 
@@ -152,35 +159,32 @@ if __name__ == "__main__":
                             Spacingd,
                             EnsureTyped,
                             EnsureChannelFirstd,
+                            ScaleIntensityRanged
                         )
     
     train_transform = None
-    test_transform = test_transform = Compose(
-                [
-                    EnsureChannelFirstd(keys=["image", "label"]),
-                    EnsureTyped(keys=["image", "label"]),
-                    Orientationd(keys=["image", "label"], axcodes="RAS"),
-                    # Spacingd(
-                    #     keys=["image", "label"],
-                    #     pixdim=(1.0, 1.0, 1.0),
-                    #     mode=("bilinear", "nearest"),
-                    # ),
-                    NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-                ]
-            ) 
+    test_transform = test_transform = Compose([
+        LoadImaged(keys='image', image_only=True, ensure_channel_first=True),
+        EnsureTyped(keys='image', device=None, track_meta=False),
+        Resized(keys='image', spatial_size=[512, 512]),
+        ScaleIntensityRanged(keys='image',
+                             a_max=255.0, a_min=0., b_max=1, b_min=0, clip=True),
+        NormalizeIntensityd(keys='image', subtrahend=0.48833441563848673, divisor=0.24424955053273747),
+    ])
     
     
 
-    pl_dataloader = KFold_pl_DataModule(data_dir='/root/Competitions/MICCAI/AutoPET2023/data/train',
+    pl_dataloader = KFold_pl_DataModule(
                                         train_transform=train_transform,
                                         batch_size=1,
+                                        num_workers=2,
                                         val_transform=test_transform)
 
-    val_dataloader = pl_dataloader.val_dataloader()
+    val_dataloader = pl_dataloader.train_dataloader()
 
 
     for idx, batch in enumerate(val_dataloader):
-        image, seg_label = batch["image"], batch["label"]
+        image, seg_label = batch["image"], batch["y"]
         print(f'{idx}, {image.shape=}, {seg_label.shape=}')
         
         
