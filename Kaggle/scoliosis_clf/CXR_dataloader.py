@@ -30,8 +30,8 @@ class CXR_dataset(Dataset):
     
     def get_SCANS(self, path:str, cls, cobbs):
         path = path.split('.')[0]
-        y = torch.tensor(cls, dtype=torch.float)
-        class_onehot = self.onehot(y)
+        y = torch.LongTensor(cls)
+        class_onehot = self.onehot(y).astype(torch.long)
         path_d = {
             'image': f'{self.data_dir}/{path}.png',
             'y':y,
