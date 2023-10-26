@@ -31,6 +31,7 @@ class backbone_pt(nn.Module):
 
         self.conv = nn.Conv2d(in_channels=1, out_channels=3, kernel_size=1,bias=False)
         self.norm = nn.BatchNorm2d(num_features=3)
+        self.out_norm = nn.BatchNorm2d(num_features=1280)
         self.act = nn.SELU()
         self.backbone = timm.create_model('tf_efficientnetv2_m.in21k_ft_in1k',
                                             pretrained=False,
@@ -43,8 +44,10 @@ class backbone_pt(nn.Module):
         h = self.norm(h)
         h = self.act(h)
         h = self.backbone(h)
+        h = self.out_norm(h)
         h = self.act(h)
         return h
+    
 if __name__ == '__main__':
     
     model = simple_CNN()
