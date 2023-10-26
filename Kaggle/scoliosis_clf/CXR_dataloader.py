@@ -84,14 +84,14 @@ class KFold_pl_DataModule(pl.LightningDataModule):
             # tarin data
             train_df = pd.read_csv(f'{self.hparams.data_root_dir}/train_split.csv')
             train_files = train_df['File_ID'].values
-            train_cls = train_df['class'].values
-            train_cobbs = train_df['Cobbs angle'].values
+            train_cls = train_df['class'].values 
+            train_cobbs = train_df['Cobbs angle'].values / 50.
             
             
             test_df = pd.read_csv(f'{self.hparams.data_root_dir}/test_split.csv')
             test_files = test_df['File_ID'].values
             test_cls = test_df['class'].values
-            test_cobbs = test_df['Cobbs angle'].values
+            test_cobbs = test_df['Cobbs angle'].values / 50.
 
             # in AI device data, we need the following codes
             # kf = StratifiedKFold(n_splits=self.hparams.num_split,
