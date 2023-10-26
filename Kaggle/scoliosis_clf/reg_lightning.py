@@ -51,9 +51,9 @@ class Regression_Network(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         
-        preds = torch.tensor(self.preds)
-        reg_targets = torch.tensor(self.reg_targets)
-        clf_targets = torch.tensor(self.clf_targets)
+        preds = torch.cat(self.preds, dim=0)
+        reg_targets = torch.cat(self.reg_targets, dim=0)
+        clf_targets = torch.cat(self.clf_targets, dim=0)
         
         
         val_loss = self.loss(preds, reg_targets).item()
