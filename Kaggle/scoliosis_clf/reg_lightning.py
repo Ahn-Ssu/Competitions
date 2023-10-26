@@ -57,12 +57,12 @@ class Classification_network(pl.LightningModule):
         
         
         val_loss = self.loss(preds, reg_targets).item()
-        val_r2   = r2_score(preds, reg_targets)
+        val_r2   = r2_score(preds, reg_targets).item()
         
         clf_preds = torch.where(preds > 0.2, 1, 0)
         clf_targets = torch.where(clf_targets > 0 , 1 , 0)
-        val_f1 = f1(clf_preds, clf_targets)
-        val_auroc = auroc(clf_preds, clf_targets, pos_label=1)
+        val_f1 = f1(clf_preds, clf_targets).item()
+        val_auroc = auroc(clf_preds, clf_targets, pos_label=1).item()
         
 
         self.log_dict({'val_loss':val_loss,
