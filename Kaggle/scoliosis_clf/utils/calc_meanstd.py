@@ -10,7 +10,7 @@ loader = Compose(
     LoadImage(ensure_channel_first=True),
     EnsureType(device=None, track_meta=False),
     # since we've scaled the data into (0, 255 = uint8), ...
-    ScaleIntensityRange(a_min=0., a_max=2**8., b_min=0., b_max=1., clip=True),# TypeError: unsupported operand type(s) for -: 'dict' and 'float'
+    ScaleIntensityRange(a_min=0., a_max=2**8-1, b_min=0., b_max=1., clip=True),# TypeError: unsupported operand type(s) for -: 'dict' and 'float'
 )
 
 
