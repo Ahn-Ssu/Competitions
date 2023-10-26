@@ -18,7 +18,7 @@ import pytorch_lightning as pl
 from torchmetrics.functional import auroc, f1, r2_score
 from sklearn import metrics
 
-class Classification_network(pl.LightningModule):
+class Regression_Network(pl.LightningModule):
     def __init__(self, network, args) -> None:
         super().__init__()
         self.save_hyperparameters(ignore=['network'])
