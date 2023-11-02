@@ -48,9 +48,13 @@ class MONAI_transformerd():
         intensity_cfg.Xray_min = 0.
         intensity_cfg.Xray_max = 2**8-1
         intensity_cfg.clip = True
-        intensity_cfg.znorm_mean = 0.3684024007478444
-        intensity_cfg.znorm_std  = 0.25313191439950905
+        intensity_cfg.znorm_mean = 0.4690341824996129
+        intensity_cfg.znorm_std  = 0.30681989313646496
         
+#         hist eq-ed mean and std of C101
+#         0.4690341824996129
+#         0.30681989313646496
+
         # Augmentation cfg
         augmentation_cfg = EasyDict()
         # lv.1
@@ -84,7 +88,7 @@ class MONAI_transformerd():
         return Compose([
         LoadImaged(keys=self.input_key, image_only=True, ensure_channel_first=True),
         EnsureTyped(keys=self.input_key, device=None, track_meta=False),
-        Resized(keys=self.input_key, spatial_size=[512, 512]),
+        Resized(keys=self.input_key, spatial_size=self.img_size),
         ScaleIntensityRanged(keys=self.input_key,
                              a_max=255.0, a_min=0., b_max=1, b_min=0, clip=True),
         HistogramNormalized(keys=self.input_key),
@@ -125,26 +129,26 @@ class MONAI_transformerd():
     def _get_default_auglist(self, intensity_cfg)->list:
         # intensity_cfg.img_size
         return [
-                [
+                
             LoadImaged(keys=self.input_key, image_only=True, ensure_channel_first=True),
             EnsureTyped(keys=self.input_key, device=None, track_meta=False),
-            Resized(keys=self.input_key, spatial_size=[512, 512]),
+            Resized(keys=self.input_key, spatial_size=self.img_size),
             ScaleIntensityRanged(keys=self.input_key,
                                 a_max=255.0, a_min=0., b_max=1, b_min=0, clip=True),
             HistogramNormalized(keys=self.input_key),
             NormalizeIntensityd(keys=self.input_key, subtrahend=intensity_cfg.znorm_mean, divisor=intensity_cfg.znorm_std),
         ]
-        ]
+        
         
     def _get_lv1_auglist(self, augmentation_cfg):
             return [
             # Lv 1. nnUNet impl Aug
             # flip + rotation + elastic + scale(brightness) + contrast(gamma)
-            RandRotated(keys=self.all_key, prob=augmentation_cfg.rotation_prob,
-                        range_x=augmentation_cfg.rotation_degree, range_y=augmentation_cfg.rotation_degree, range_z=augmentation_cfg.rotation_degree),
-            Rand3DElasticd(keys=self.all_key, prob=augmentation_cfg.elastic_prob,
-                           sigma_range=augmentation_cfg.elastic_sigma_range,
-                           magnitude_range=augmentation_cfg.elastic_magnitude_range),
+#             RandRotated(keys=self.all_key, prob=augmentation_cfg.rotation_prob,
+#                         range_x=augmentation_cfg.rotation_degree, range_y=augmentation_cfg.rotation_degree, range_z=augmentation_cfg.rotation_degree),
+#             Rand3DElasticd(keys=self.all_key, prob=augmentation_cfg.elastic_prob,
+#                            sigma_range=augmentation_cfg.elastic_sigma_range,
+#                            magnitude_range=augmentation_cfg.elastic_magnitude_range),
             RandScaleIntensityd(keys=self.input_key, prob=augmentation_cfg.scaling_prob,
                                 factors=augmentation_cfg.scaling_fator),
             RandAdjustContrastd(keys=self.input_key, prob=augmentation_cfg.gamma_prob,

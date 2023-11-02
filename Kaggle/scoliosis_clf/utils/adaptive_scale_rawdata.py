@@ -10,7 +10,7 @@ import pandas as pd
 
 def scale_img(arr, offset):
 	# for safty
-	max_val = offset -1
+	max_val = offset - 1
 	arr = np.where( arr>max_val, max_val, arr)
 	scaled = ((arr ) / (max_val) *255.).astype(np.uint8)
 	if len(scaled.shape) == 3:
@@ -33,56 +33,53 @@ cobb_angle = df['Cobbs angle'].values
 scoliosis_calss = df['class'].values
 diagnosis = df['diagnosis'].values
 
-save_dir = '/home/pwrai/userarea/spineTeam/data/AP'
-for idx in enumerate(len(file_path)):
-    
-	path = file_path[idx]
-	path = f'/home/pwrai/ktldata/spine/spine1/DCM/{path}'
+save_dir = '/home/pwrai/userarea/spineTeam/data/C106'
+for idx in tqdm(range(len(file_path))):
+	file = file_path[idx]
+	path = f'/home/pwrai/ktldata/spine/spine1/DCM/{file}'
 	
+	if not 'C106' in path:
+		continue
+        
 	dcm = sitk.ReadImage(path)
 	arr = sitk.GetArrayFromImage(dcm)
 
 	if str(arr.dtype) == 'float64' or str(arr.dtype) == 'float':
 		continue
 
-	min_val = 0
- 
-	if 'C101' in path:
-        # 5119 data
-		c101_5199 = ['C101_Spine_0330_20190108_1', 'C101_Spine_0149_20190102_1', 'C101_Spine_0084_20190325_1', 'C101_Spine_0081_20191001_1','C101_Spine_0037_20191223_1','C101_Spine_0029_20190718_1']
-		
-		is_in = False
-		for label in c101_5199:
-			if path in label:
-				is_in = True
-				break
-		
-		offset = 2**12 + 2**10 if is_in else 2**12
-
-	if 'C104' in path or 'C106':
-		offset = 2**12
-
-
-	if 'C103' in path or 'C105' in path or 'C301' in path:
-
-		# manually checking data distribution
-		for offset_bit in [2**10, 2**12, 2**12+2**10]:
-			bins = np.arange(0, 2**14, offset_bit)
-			hist, bins = np.histogram(arr, bins)
-
-			bit_flag = False # for
-
-			for idx, (h, b) in enumerate(zip(hist, bins)):
-				if idx == 1 and h < 2**10:
-					bit_flag = True
-					break
-
-			if bit_flag:
-				break
-
-	scaled = scale_img(arr, min_val, offset)
-	img = Image.fromarray(scaled)
-
+# 	if not '0038' in path:
+# 		continue        
+        
+# 	bit8_norm = scale_img(arr, 2**8) / 255
+# 	bit10_norm = scale_img(arr, 2**10) / 255
+# 	bit12_norm = scale_img(arr, 2**12) / 255
+# 	bit1210_norm = scale_img(arr, 2**12 + 2 **10) / 255
+# 	bit14_norm = scale_img(arr, 2**14) / 255
+    
+	for offset in [2**8, 2**10, 2**12, 2**12 + 2**10, 2**14]: 
+		uint8_img = scale_img(arr, offset)
+		mean = np.mean(uint8_img) / 255.
+		print(path, offset, round(mean,4))
+# 		img = Image.fromarray(uint8_img)
+# 		filename = path.split('/')[-1].split('.')[0]
+# 		save_name = f'{save_dir}/{filename}_{offset}.png'
+# 		img.save(save_name)
+		if mean > 0.5:
+			continue
+		else:
+			
+			break
+	if mean < 0.35:
+			continue
+	
+        
+# 	print(f'8    mean - {np.mean(bit8_norm)}')
+# 	print(f'10   mean - {np.mean(bit10_norm)}')
+# 	print(f'12   mean - {np.mean(bit12_norm)}')
+# 	print(f'1210 mean - {np.mean(bit1210_norm)}')
+# 	print(f'14   mean - {np.mean(bit14_norm)}\n')
+	
+	img = Image.fromarray(uint8_img)
 	filename = path.split('/')[-1].split('.')[0]
 	save_name = f'{save_dir}/{filename}.png'
 	img.save(save_name)
@@ -90,15 +87,17 @@ for idx in enumerate(len(file_path)):
 			
 	filtered_dtype.append(str(arr.dtype)) 
 	filtered_offsets.append(offset)
-	filtered_path.append(path)
+	filtered_path.append(file)
 	filtered_angle.append(cobb_angle[idx])
 	filtered_class.append(scoliosis_calss[idx])
 	filtered_diagnosis.append(diagnosis[idx])
+	
 
 
 df = pd.DataFrame([filtered_path, filtered_angle, filtered_class,  filtered_diagnosis, filtered_dtype, filtered_offsets], 
-                  columns=['File_ID', 'Cobbs angle','class','diagnosis','dtype','offset'])
+                  index=['File_ID', 'Cobbs angle','class','diagnosis','dtype','offset'])
+df = df.transpose()
 
 
-df.to_csv(csv_path, index=False)
+df.to_csv(f'{save_dir}/info.csv', index=False)
 

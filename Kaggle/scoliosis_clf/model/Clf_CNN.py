@@ -14,7 +14,7 @@ class simple_CNN(nn.Module):
         self.load_weights()
 
     def load_weights(self):
-        self.backbone.load_state_dict(torch.load('/home/pwrai/userarea/spineTeam/model/weights/efficientNet_v2_m.ckpt'))
+        self.backbone.load_state_dict(torch.load('/home/pwrai/userarea/spineTeam/model/weights/backbone_efficient_v2_m.ckpt'))
         
     def forward(self, inputs):
         
@@ -37,7 +37,17 @@ class backbone_pt(nn.Module):
                                             num_classes=0,
                                             #features_only=True,
                                       )
-
+        
+        with torch.no_grad():
+            # print(self.norm.weight.shape) #torch.size([3])
+            self.norm.weight[0] = 0.485
+            self.norm.weight[1] = 0.456
+            self.norm.weight[2] = 0.406
+            
+            #print(self.norm.bias.shape) #torch.size([3])
+            for idx in range(len(self.norm.bias)):
+                self.norm.bias[idx] = 0.
+            
     def forward(self, inputs):
         h = self.conv(inputs)
         h = self.norm(h)
@@ -46,13 +56,15 @@ class backbone_pt(nn.Module):
         h = self.out_norm(h)
         h = self.act(h)
         return h
+    
+    
 if __name__ == '__main__':
     
     model = simple_CNN()
     
-    inputs = torch.rand(1,1,512,512)
+    # inputs = torch.rand(1,1,512,512)
     
-    inputs = inputs.to('cuda:0')
-    model = model.to('cuda:0')
+    # inputs = inputs.to('cuda:0')
+    # model = model.to('cuda:0')
     
     ret = model(inputs)

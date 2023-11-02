@@ -4,17 +4,19 @@ import traceback
 import numpy as np
 
 from tqdm import tqdm 
-from monai.transforms import (Compose, LoadImage, EnsureType, ScaleIntensityRange, NormalizeIntensity)
+from monai.transforms import (Compose, LoadImaged, EnsureTyped, HistogramNormalize, ScaleIntensityRanged, ScaleIntensityRange, NormalizeIntensity)
 
+keys = ['image']
 loader = Compose(
-    LoadImage(ensure_channel_first=True),
-    EnsureType(device=None, track_meta=False),
+    LoadImaged(keys=keys,ensure_channel_first=True),
+    EnsureTyped(keys=keys,device=None, track_meta=False),
     # since we've scaled the data into (0, 255 = uint8), ...
-    ScaleIntensityRange(a_min=0., a_max=2**8-1, b_min=0., b_max=1., clip=True),# TypeError: unsupported operand type(s) for -: 'dict' and 'float'
+    
+#     ScaleIntensityRanged(keys=keys,a_min=0., a_max=2**8-1, b_min=0., b_max=1., clip=True),# TypeError: unsupported operand type(s) for -: 'dict' and 'float'
 )
 
 
-data_path = glob.glob('/home/pwrai/userarea/spineTeam/data/AP/*')
+data_path = glob.glob('/home/pwrai/userarea/spineTeam/data/C101/*.png')
 
 cnt = 0 
 x = 0
@@ -22,9 +24,13 @@ y = 0
 mean = 0 
 var = 0
 
+hist_eq =     HistogramNormalize()
+
+
 for path in tqdm(data_path):
+    d = {'image':path}
     try: 
-        data = loader(path)[0]
+        data = loader(d)['image']
     except Exception as ex:
         print('=====except statements=====')
         print('=====except statements=====')
@@ -39,9 +45,11 @@ for path in tqdm(data_path):
     
     x += w
     y += h
-    data = data.flatten()
-    img_mean = np.mean(data)
-    img_var  = np.var(data)
+    data = hist_eq(data)
+    data = data.flatten() / 255.
+    img_mean = np.mean(data) 
+    img_var  = np.var(data) 
+    print(img_mean, img_var, path)
     
     L = len(data)
     cnt += L
@@ -56,6 +64,7 @@ overall_var = np.sqrt(overall_var)
 
 print(f'{overall_mean}')
 print(f'{overall_var}')
+
 print()
 print('validity check  validity check  validity check')
 print('validity check  validity check  validity check')
@@ -75,7 +84,7 @@ var = 0
 
 for path in tqdm(data_path):
     
-    data = loader(path)[0]
+    data = loader(path)['image']
     c, w, h = data.size()
     
     x += w

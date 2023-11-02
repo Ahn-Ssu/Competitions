@@ -35,14 +35,16 @@ class Regression_Network(pl.LightningModule):
 
     
     def configure_optimizers(self) -> Any:
-        optimizer = AdaBelief(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=self.args.weight_decay)
-        scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=self.args.epoch, max_lr=self.args.init_lr, min_lr=self.args.init_lr*self.args.lr_dec_rate, warmup_steps=self.args.epoch//10, gamma=0.8)
+        optimizer = AdamP(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=self.args.weight_decay)
+        scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=self.args.epoch, max_lr=self.args.init_lr, min_lr=self.args.init_lr*self.args.lr_dec_rate, warmup_steps=self.args.epoch//20, gamma=0.8)
         return [optimizer], [scheduler]
     
     def training_step(self, batch, batch_idx):
         x, _, cobbs = batch['image'], batch['y'], batch['cobbs']
         y_hat = self.model(x)
-        loss = self.loss(y_hat, cobbs)
+#         print('train_cobbs:', cobbs)
+#         print('train y_hat:', y_hat)
+        loss = self.loss(y_hat.squeeze(), cobbs)
         self.log("train_loss", loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True, batch_size=self.args.batch_size, sync_dist=True)
         return loss
     
@@ -51,7 +53,7 @@ class Regression_Network(pl.LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         
-        preds = torch.cat(self.preds, dim=0)
+        preds = torch.cat(self.preds, dim=0).squeeze()
         reg_targets = torch.cat(self.reg_targets, dim=0)
         clf_targets = torch.cat(self.clf_targets, dim=0)
         
@@ -59,12 +61,20 @@ class Regression_Network(pl.LightningModule):
         val_loss = self.loss(preds, reg_targets).item()
         val_r2   = r2_score(preds, reg_targets).item()
         
-        clf_preds = torch.where(preds > 0.2, 1, 0)
+        clf_preds = torch.where(preds > 0.5, 1, 0)
         clf_targets = torch.where(clf_targets > 0 , 1 , 0)
-        val_f1 = f1(clf_preds, clf_targets).item()
-        val_auroc = auroc(clf_preds, clf_targets, pos_label=1).item()
         
+        print('y_hat', preds)
+        print('cobbs',reg_targets)
+        print()
+        print('y_hat_clf',clf_preds)
+        print('scoliosis',clf_targets)
 
+        val_f1 = f1(clf_preds, clf_targets).item()
+        val_auroc = auroc(clf_preds, clf_targets, pos_label=1, num_classes=1).item()
+        
+        
+        print(f'val_loss={val_loss}, val_r2={val_r2}, val_f1={val_f1}, val_auroc={val_auroc}')
         self.log_dict({'val_loss':val_loss,
                        'val_r2':val_r2,
                        'val_auroc':val_auroc,

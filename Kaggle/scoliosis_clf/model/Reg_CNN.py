@@ -9,20 +9,21 @@ class simple_CNN(nn.Module):
         super(simple_CNN, self).__init__()
         
         self.backbone = backbone_pt()
-        self.classifier = nn.Linear(in_features=1280, out_features=1)
+#         self.backbone = models.resnet34()
+        self.classifier = nn.Linear(in_features=1000, out_features=1)
 
-        self.load_weights()
+#         self.load_weights()
 
-    def load_weights(self):
-        self.backbone.load_state_dict(torch.load('/home/pwrai/userarea/spineTeam/model/weights/efficientNet_v2_m.ckpt'))
-        
+#     def load_weights(self):
+#         self.backbone.load_state_dict(torch.load('/home/pwrai/userarea/spineTeam/model/weights/backbone_efficient_v2_m.ckpt'))
+#         self.backbone.out_norm = nn.BatchNorm1d(1280)
+
     def forward(self, inputs):
-        
         h = self.backbone(inputs)
         h = self.classifier(h)
         # h = F.sigmoid(h)
-        h = F.softplus(h)
-        
+#         h = F.softplus(h)
+        h = torch.abs(h)
         return h
         
 class backbone_pt(nn.Module):
@@ -31,14 +32,14 @@ class backbone_pt(nn.Module):
 
         self.conv = nn.Conv2d(in_channels=1, out_channels=3, kernel_size=1,bias=False)
         self.norm = nn.BatchNorm2d(num_features=3)
-        self.out_norm = nn.BatchNorm2d(num_features=1280)
+        self.out_norm = nn.BatchNorm1d(num_features=1000)
         self.act = nn.SELU()
-        self.backbone = timm.create_model('tf_efficientnetv2_m.in21k_ft_in1k',
-                                            pretrained=False,
-                                            num_classes=0,
-                                            #features_only=True,
-                                      )
-
+#         self.backbone = timm.create_model('tf_efficientnetv2_m.in21k_ft_in1k',
+#                                             pretrained=False,
+#                                             num_classes=0,
+#                                             #features_only=True,
+#                                       )
+        self.backbone = models.resnet152()
     def forward(self, inputs):
         h = self.conv(inputs)
         h = self.norm(h)
