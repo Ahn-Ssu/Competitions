@@ -1,0 +1,17 @@
+args: !!python/object/new:easydict.EasyDict
+  dictitems:
+    batch_size: 4
+    epoch: 200
+    init_lr: 0.0001
+    lr_dec_rate: 0.01
+    seed: 411
+    server: Mk3
+    weight_decay: 0.005
+  state:
+    batch_size: 4
+    epoch: 200
+    init_lr: 0.0001
+    lr_dec_rate: 0.01
+    seed: 411
+    server: Mk3
+    weight_decay: 0.005
