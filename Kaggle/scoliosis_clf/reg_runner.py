@@ -21,7 +21,7 @@ def run():
     args = EasyDict()
 
     # training cfg
-    args.img_size = (128, 256)
+    args.img_size = (256, 512)
     args.batch_size = 16 # mk4 32bit-4Bz = 44201
     args.epoch = 500
     args.init_lr = 1e-4
@@ -85,7 +85,7 @@ def run():
         logger = TensorBoardLogger(
                             save_dir='.',
                             # version='LEARNING CHECK',
-                            version=f'1.baseline/{_day}/ResNet152_128x256(C101+C103, MAE)',
+                            version=f'2.sincos/{_day}/ResNet34_128x256(C101+C103, MAE)',
                             default_hp_metric=False
                         )
         

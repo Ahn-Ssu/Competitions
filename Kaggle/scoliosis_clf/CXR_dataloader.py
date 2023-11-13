@@ -2,6 +2,8 @@ import glob
 import pandas as pd
 import pytorch_lightning as pl
 
+import numpy as np
+
 import torch
 import torch.nn.functional as F
 
@@ -52,11 +54,20 @@ class CXR_dataset(Dataset):
         # C101 저장 에러로 임시사용
         y = torch.tensor(cls)
         class_onehot = self.onehot(y).astype(torch.long)
+        
+        cobbs = torch.tensor(cobbs, dtype=torch.float)
+        radian = (np.pi * cobbs) / 180.
+        sin = torch.sin(radian)
+        cos = torch.cos(radian)
+        # radian = torch.atan2(sin_theta, cos_theta)
+        # cobbs = (radian *180.) / np.pi
+        
         path_d = {
             'image': f'{data_dir}/{path}.png',
             'y':y,
             'class_onehot':class_onehot,
-            'cobbs':torch.tensor(cobbs, dtype=torch.float)
+            'cobbs':cobbs,
+            'sincos':torch.stack([sin, cos], dim=0)
         }
 
         try:
@@ -117,7 +128,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
             train_df = pd.concat([train_df, train_df1], axis=0)
             train_files = train_df['File_ID'].values
             train_cls = train_df['class'].values 
-            train_cobbs = train_df['Cobbs angle'].values / 20.
+            train_cobbs = train_df['Cobbs angle'].values
             
             
             test_df = pd.read_csv(f'{self.hparams.data_root_dir}/test_split_c101.csv')
@@ -125,7 +136,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
             test_df = pd.concat([test_df, test_df1], axis=0)
             test_files = test_df['File_ID'].values
             test_cls = test_df['class'].values
-            test_cobbs = test_df['Cobbs angle'].values / 20.
+            test_cobbs = test_df['Cobbs angle'].values
 
             # in AI device data, we need the following codes
             # kf = StratifiedKFold(n_splits=self.hparams.num_split,
