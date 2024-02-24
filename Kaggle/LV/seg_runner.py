@@ -17,7 +17,7 @@ def run():
     from utils.transform_generator import MONAI_transformerd
     
     import torch
-    
+    import torch._dynamo
     # from monai.networks.nets import basic_unet
     from models.unet import MyUNet
 
@@ -26,7 +26,7 @@ def run():
 
 # 134.38036809815952 110.02453987730061 157.11656441717793
     # training cfg
-    args.img_size = (144, 128, 144)
+    args.img_size = (144, 144, 144)
     args.batch_size = 1 # mk4 32bit-4Bz = 44201
     args.epoch = 1000
     args.init_lr = 1e-3
@@ -73,14 +73,14 @@ def run():
                             num_split=num_split,
                             split_seed=args.seed,
                             batch_size=args.batch_size,
-                            num_workers=15,
+                            num_workers=16,
                             pin_memory=False,
                             persistent_workers=True, # persistent_workers option needs num_workers > 0
                             train_transform=train_transform,
                             val_transform=test_transform
                         )
 
-        model = MyUNet(3, 1, 3, (32, 32, 64, 128, 256), (2, 2, 2, 2), num_res_units=2, adn_ordering="NA")
+        model = MyUNet(3, 1, 20, (32, 32, 64, 128, 256), (2, 2, 2, 2), num_res_units=2, adn_ordering="NA")
         
         # print(model)
         args.z_model_arch = str(model)
@@ -88,7 +88,7 @@ def run():
         pl_runner = Segmentation_network(network=model, args=args)#.load_from_checkpoint('/root/Competitions/MICCAI/AutoPET2023/lightning_logs/IntensityRange/2023-06-28/CT=(-100, 400), PET=(0, 40) || UNet_lateF(16,256) w He - GPU devices[2,3]/checkpoints/UNet_lateF-epoch=182-train_loss=0.3444-val_dice=0.6879.ckpt', network=model, args=args)
         
       
-          pl_runner = torch.compile(pl_runner)
+        # pl_runner = torch.compile(pl_runner)
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
         checkpoint_callback = ModelCheckpoint(
@@ -106,25 +106,26 @@ def run():
                             save_dir='.',
                             # version='SegFault-2',
                             # version='LEARNING CHECK',
-                            version=f'1.firstRun/{_day}/mk5)mgz-run',
+                            version=f'firstRun/{_day}/mk5)mgz-run',
                             default_hp_metric=False
                         )
         
         trainer = Trainer( # https://github.com/Lightning-AI/lightning/issues/12398
                     max_epochs=args.epoch,
-                    devices=[2,3],
+                    devices=4,
                     accelerator='gpu',
                     precision='16-mixed',
                     strategy=DDPStrategy(find_unused_parameters=False), # late fusion ㅎㅏㄹㄸㅐ ㅋㅕㄹㅏ..
                     benchmark=False,
                     callbacks=[lr_monitor, checkpoint_callback],
                     # check_val_every_n_epoch=2,
-                    check_val_every_n_epoch=6,
+                    check_val_every_n_epoch=5,
                     # log_every_n_steps=1,
                     logger=logger,
                     # auto_lr_find=True
                     # accumulate_grad_batches=2
                     # profiler='simple', #advanced
+                    # num_sanity_val_steps=0
                 )
         
 

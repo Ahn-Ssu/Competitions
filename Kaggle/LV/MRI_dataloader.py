@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 import traceback
+import pickle
 
 class MRI_dataset(Dataset):
     def __init__(self, scan_IDs=None, transform=None) -> None:
@@ -25,19 +26,18 @@ class MRI_dataset(Dataset):
         return len(self.scan_IDs)
     
     def get_SCANS(self, path):
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+    
+        image, label = data['t1'], data['prep_aseg']
 
-        d = {
-            'image': f'{path}/T1.nii.gz',
-            'label': f'{path}/aseg.nii.gz'
-        }
 
-        try:
+        d = {'image':image,
+            'label':label}
+        
+        if self.transform:
             d = self.transform(d)
-        except Exception as ex:
-            print(path)
-            print(ex)
-            print(traceback.format_exc())
-            
+        
         return d
     
 
@@ -65,7 +65,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
 
     def setup(self, stage=None) -> None:
         if not self.train_data and not self.val_data and not self.test_data:
-            scan_list = glob.glob('/root/snsb/data/mri/*')
+            scan_list = glob.glob('/root/data/lv_seg/*/*/RAS_t1+aseg.pickle')
             
             kf = KFold(n_splits=self.hparams.num_split)
             all_splits = [k for k in kf.split(scan_list)]
@@ -96,7 +96,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
         return DataLoader(self.val_data,
                           batch_size=self.hparams.batch_size, # self.hparams.batch_size, # when PT -> bz else 1 
                           shuffle=False,
-                          num_workers=self.hparams.num_workers,
+                          num_workers=self.hparams.num_workers//4,
                           persistent_workers=self.hparams.persistent_workers,
                           pin_memory=self.hparams.pin_memory)
     
@@ -104,7 +104,7 @@ class KFold_pl_DataModule(pl.LightningDataModule):
         return DataLoader(self.test_data,
                           batch_size=self.hparams.batch_size, # self.hparams.batch_size, # when PT -> bz else 1 
                           shuffle=False,
-                          num_workers=self.hparams.num_workers,
+                          num_workers=self.hparams.num_workers//4,
                           persistent_workers=self.hparams.persistent_workers,
                           pin_memory=self.hparams.pin_memory)
     
@@ -112,26 +112,29 @@ class KFold_pl_DataModule(pl.LightningDataModule):
 
 if __name__ == "__main__":
     from utils.transform_generator import MONAI_transformerd
+    from monai import transforms
+    import torch
     
-    T = MONAI_transformerd(all_key=['image','label'], 
-                           input_key=['image'], 
-                           input_size=(128,128,128), 
-                           aug_Lv=1)
     
-    basic_cfg, augmentation_cfg = T.get_CFGs()
-    train_transform = T.generate_train_transform(basic_cfg=basic_cfg, augmentation_cfg=augmentation_cfg)
-    test_transform = T.generate_test_transform(basic_cfg=basic_cfg)
+    path = '/root/data/lv_seg/ADNI3000_AD/I1003730_135_S_6389/RAS_t1+aseg.pickle'
 
-    pl_dataloader = KFold_pl_DataModule(
-                                        train_transform=train_transform,
-                                        batch_size=1,
-                                        num_workers=2,
-                                        val_transform=test_transform)
+    with open(path, 'rb') as f:
+        data = pickle.load(f)
+    
+    image, label = data['t1'], data['prep_aseg']
 
-    val_dataloader = pl_dataloader.train_dataloader()
+    print(image.min(), image.max(), label.shape)
 
+    d = {'image':image,
+        'label':label}
+    t = transforms.Compose([
+        transforms.EnsureChannelFirstd(keys=['image','label'], channel_dim="no_channel"),
+        transforms.EnsureTyped(keys=['label'], dtype=torch.long),
+        transforms.ScaleIntensityRangePercentilesd(keys="image", lower=0, upper=99.5, b_min=0, b_max=1),
+        # transforms.CropForegroundd(keys=['image','label'], source_key=['image']),
+        transforms.AsDiscreted(keys=['label'], to_onehot=20),
+        transforms.CenterSpatialCropd(keys=["image", 'label'], roi_size=(224, 224, 224)),
+    ])
 
-    for idx, batch in enumerate(val_dataloader):
-        image, seg_label = batch["image"], batch["label"]
-        print(image.shape, seg_label.shape)
-        # break
+    d = t(d)
+    print(d['image'].shape, d['label'].shape)

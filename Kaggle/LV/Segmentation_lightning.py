@@ -28,18 +28,18 @@ class Segmentation_network(pl.LightningModule):
         
         self.model = network
         self.args = args
-        self.loss = DiceFocalLoss(to_onehot_y=False, softmax=True)
+        self.loss = DiceFocalLoss(to_onehot_y=True, softmax=True)
         self.dice_M = DiceMetric(include_background=True, reduction="mean_batch", get_not_nans=False)
         
         self.post_pred = Compose([EnsureType("tensor", device="cpu"), AsDiscrete(argmax=False, threshold=0.5)])
         self.post_label = Compose([EnsureType("tensor", device="cpu")])
-        self.one_hot = AsDiscrete(to_onehot=3)
+        self.one_hot = AsDiscrete(to_onehot=20)
         ###########################
 
         self.loss_log = np.array([])
     
     def configure_optimizers(self) -> Any:
-        optimizer = AdaBelief(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=self.args.weight_decay)
+        optimizer = optim.AdamW(params=self.parameters(), lr=self.args.init_lr, betas=[0.9, 0.999], weight_decay=self.args.weight_decay)
         scheduler = CosineAnnealingWarmupRestarts(optimizer=optimizer, first_cycle_steps=self.args.epoch, max_lr=self.args.init_lr, min_lr=self.args.init_lr*self.args.lr_dec_rate, warmup_steps=self.args.epoch//10, gamma=0.8)
         return [optimizer], [scheduler]
     
@@ -61,23 +61,18 @@ class Segmentation_network(pl.LightningModule):
         print(f'{val_loss=}')
         # val_dice = self.dice_M.aggregate().item()
         val_dice = self.dice_M.aggregate()
-        print(val_dice)
-        dice0, dice1, dice2 = val_dice
         dealloc = lambda x: x.detach().cpu().item()
-        dice0 = dealloc(dice0)
-        dice1 = dealloc(dice1)
-        dice2 = dealloc(dice2)
+        
+        d = {} 
+        for idx in range(20):
+            d[f'dice{idx}'] = dealloc(val_dice[idx])
         val_dice = val_dice.mean().detach().cpu().item()
         # val_fpr, val_fnr = np.mean(self.fpr_log), np.mean(self.fnr_log)
         
+        d['val_dice'] = val_dice
+        d['val_loss'] = val_loss
 
-        self.log_dict({'val_loss':val_loss,
-                       'val_dice':val_dice,
-                       'dice0':dice0,
-                       'dice1':dice1,
-                       'dice2':dice2
-                       },
-                       prog_bar=True, sync_dist=True)
+        self.log_dict(d, prog_bar=True, sync_dist=True)
         
         self.dice_M.reset()
         self.loss_log = np.array([])
@@ -123,7 +118,7 @@ class Segmentation_network(pl.LightningModule):
         # unsqz_oh = self.one_hot(logit.unsqueeze(0))
         # print(unsqz_oh.shape)
         if batch_idx % 5 == 0:
-            self.log_img_on_TB(img, seg_y, self.one_hot(logit).unsqueeze(0), batch_idx)
+            self.log_img_on_TB(img, seg_y, logit.unsqueeze(0), batch_idx)
 
 
  
@@ -140,16 +135,20 @@ class Segmentation_network(pl.LightningModule):
         if tb_logger is None:
                 raise ValueError('TensorBoard Logger not found')
         fn_tonumpy = lambda x: torch.as_tensor(x, dtype=torch.half, device='cpu').detach().numpy().transpose(0, 2, 3, 4, 1)
+        print(f'{pred.shape=}, {seg_y.shape=}, {np.unique(pred[..., 0])=}')
+        
         seg_y = fn_tonumpy(seg_y)
         pred = fn_tonumpy(pred)
         img = fn_tonumpy(img)
-        print(f'{pred.shape=}, {seg_y.shape=}, {np.unique(pred[..., 0])=}, {np.unique(pred[..., 1])=}, {np.unique(pred[..., 2])=}')
+        print(f'{pred.shape=}, {seg_y.shape=}, {np.unique(pred[..., 0])=}')
+        # pred.shape=(1, 224, 224, 224, 20), seg_y.shape=(1, 224, 224, 224, 1), np.unique(pred[..., 0])=array([0., 1.], dtype=float16), np.unique(pred[..., 1])=array([0., 1.], dtype=float16), np.unique(pred[..., 2])=array([0., 1.], dtyp
+# e=float16)
         
         
-        
-        tb_logger.add_images(f"img/{batch_idx}", img[0:2,:,:,80], self.current_epoch + 1, dataformats="NHWC")
-        tb_logger.add_images(f"label/{batch_idx}", seg_y[0:2,:,:,80], self.current_epoch + 1, dataformats="NHWC")
-        tb_logger.add_images(f"y_hat/{batch_idx}", pred[0:2,:,:,80], self.current_epoch + 1, dataformats="NHWC")
+        print(f'{img[0:1,:,:,80].shape=}')
+        tb_logger.add_images(f"img/{batch_idx}", img[:,:,:,80,:], self.current_epoch + 1, dataformats="NHWC")
+        tb_logger.add_images(f"label/{batch_idx}", seg_y[:,:,:,80,:], self.current_epoch + 1, dataformats="NHWC")
+        tb_logger.add_images(f"y_hat/{batch_idx}", pred[:,:,:,80,:], self.current_epoch + 1, dataformats="NHWC")
             
             
             

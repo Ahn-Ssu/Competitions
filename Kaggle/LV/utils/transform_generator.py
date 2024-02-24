@@ -1,37 +1,39 @@
-from monai.transforms import (
-                            Compose,
-                            OneOf,
+import monai.transforms as transforms 
+import torch
+# import (
+#                             Compose,
+#                             OneOf,
                             
-                            AsDiscreted,
+#                             AsDiscreted,
 
-                            LoadImaged,
-                            EnsureTyped,
-                            ScaleIntensityRanged,
+#                             LoadImaged,
+#                             EnsureTyped,
+#                             ScaleIntensityRanged,
                             
-                            Orientationd,
-                            CropForegroundd, 
-                            RandCropByPosNegLabeld,
-                            RandSpatialCropd,
+#                             Orientationd,
+#                             CropForegroundd, 
+#                             RandCropByPosNegLabeld,
+#                             RandSpatialCropd,
 
-                            ## nnUNet v1 impl Aug
-                            RandFlipd,
-                            RandRotated,
-                            Rand3DElasticd,
-                            RandScaleIntensityd,
-                            RandAdjustContrastd, # gamma correction
+#                             ## nnUNet v1 impl Aug
+#                             RandFlipd,
+#                             RandRotated,
+#                             Rand3DElasticd,
+#                             RandScaleIntensityd,
+#                             RandAdjustContrastd, # gamma correction
                             
-                            Resized,
-                            Spacingd,
-                            RandGaussianNoised,
-                            RandGaussianSmoothd,
-                            RandShiftIntensityd,
+#                             Resized,
+#                             Spacingd,
+#                             RandGaussianNoised,
+#                             RandGaussianSmoothd,
+#                             RandShiftIntensityd,
 
                             # RandAdjustContrastd,
                             # RandGaussianSharpend,
 
                             # RandCoarseDropoutd,
                             # RandCoarseShuffled
-                        )
+                        # )
 
 import numpy as np
 from easydict import EasyDict
@@ -83,18 +85,15 @@ class MONAI_transformerd():
         if basic_cfg == None:
             basic_cfg = self.basic_cfg
         
-        return Compose([
-                    LoadImaged(keys=self.all_key, image_only=True, ensure_channel_first=True),
-                    EnsureTyped(keys=self.all_key, device=None, track_meta=False),
-                    # Orientationd(keys=self.all_key, axcodes="RAS"),
-                    # CropForegroundd(keys=self.all_key, source_key=self.label_key),
-                    CropForegroundd(keys=self.all_key, source_key=self.label_key, allow_smaller=False),
-                    Resized(keys=self.all_key, spatial_size=self.img_size),
-                    AsDiscreted(keys='label', to_onehot=self.basic_cfg.num_class),
-                    ScaleIntensityRanged(keys=self.input_key,
-                                        a_max=self.basic_cfg.MRI_max, a_min=self.basic_cfg.MRI_min,
-                                        b_max=1, b_min=0, clip=True),
-                ])
+        return transforms.Compose([
+        transforms.EnsureTyped(keys=['label'], dtype=torch.long, track_meta=False),
+        transforms.EnsureTyped(keys=['image'], dtype=torch.float32, track_meta=False),
+        transforms.EnsureChannelFirstd(keys=['image','label'], channel_dim="no_channel"),
+        transforms.ScaleIntensityRangePercentilesd(keys="image", lower=0, upper=99.5, b_min=0, b_max=1),
+        # transforms.CropForegroundd(keys=['image','label'], source_key=['image']),
+        
+        transforms.CenterSpatialCropd(keys=["image", 'label'], roi_size=(224, 224, 224)),
+    ])
         
     def generate_train_transform(self, 
                                  basic_cfg:EasyDict=None, augmentation_cfg:EasyDict=None, 
@@ -108,14 +107,14 @@ class MONAI_transformerd():
         
         default_aug = self._get_default_auglist(basic_cfg)
         if self.aug_Lv == 0 :
-            return Compose(default_aug)
+            return transforms.Compose(default_aug)
         
         if self.aug_Lv == 1 :
             aug_list = self._get_lv1_auglist(augmentation_cfg)
         
         
         if not is_randAug:
-            return Compose(default_aug + aug_list)
+            return transforms.Compose(default_aug + aug_list)
         
         # n = len(aug_list)
         # chosen = SomeOf(
@@ -130,34 +129,33 @@ class MONAI_transformerd():
     def _get_default_auglist(self, basic_cfg)->list:
         # basic_cfg.img_size
         return [
-                    LoadImaged(keys=self.all_key, image_only=True, ensure_channel_first=True),
-                    EnsureTyped(keys=self.all_key, device=None, track_meta=False),
-                    # Orientationd(keys=self.all_key, axcodes="RAS"),
-                    # CropForegroundd(keys=self.all_key, source_key=self.label_key),
-                    CropForegroundd(keys=self.all_key, source_key=self.label_key, allow_smaller=False),
-                    Resized(keys=self.all_key, spatial_size=self.img_size),
-                    AsDiscreted(keys='label', to_onehot=self.basic_cfg.num_class),
-                    ScaleIntensityRanged(keys=self.input_key,
-                                        a_max=self.basic_cfg.MRI_max, a_min=self.basic_cfg.MRI_min,
-                                        b_max=1, b_min=0, clip=True),
-                ]
+        transforms.EnsureTyped(keys=['label'], dtype=torch.long, track_meta=False),
+        transforms.EnsureTyped(keys=['image'], dtype=torch.float32, track_meta=False),
+        transforms.EnsureChannelFirstd(keys=['image','label'], channel_dim="no_channel"),
+        
+        transforms.ScaleIntensityRangePercentilesd(keys="image", lower=0, upper=99.5, b_min=0, b_max=1),
+        # transforms.CropForegroundd(keys=['image','label'], source_key=['image']),
+        
+        transforms.CenterSpatialCropd(keys=["image", 'label'], roi_size=(224, 224, 224)),
+        transforms.RandSpatialCropd(keys=["image", 'label'], roi_size=(144, 144, 144))
+    ]
         
         
     def _get_lv1_auglist(self, augmentation_cfg):
             return [
             # Lv 1. nnUNet impl Aug
             # flip + rotation + elastic + scale(brightness) + contrast(gamma)
-            RandFlipd(keys=self.all_key, spatial_axis=0),
-            RandFlipd(keys=self.all_key, spatial_axis=1),
-            RandFlipd(keys=self.all_key, spatial_axis=2),
-            RandRotated(keys=self.all_key, prob=augmentation_cfg.rotation_prob,
+            transforms.RandFlipd(keys=['image','label'], spatial_axis=0),
+            transforms.RandFlipd(keys=['image','label'], spatial_axis=1),
+            transforms.RandFlipd(keys=['image','label'], spatial_axis=2),
+            transforms.RandRotated(keys=['image','label'], prob=augmentation_cfg.rotation_prob,
                         range_x=augmentation_cfg.rotation_degree, range_y=augmentation_cfg.rotation_degree, range_z=augmentation_cfg.rotation_degree),
-            Rand3DElasticd(keys=self.all_key, prob=augmentation_cfg.elastic_prob,
+            transforms.Rand3DElasticd(keys=['image','label'], prob=augmentation_cfg.elastic_prob,
                            sigma_range=augmentation_cfg.elastic_sigma_range,
                            magnitude_range=augmentation_cfg.elastic_magnitude_range),
-            RandScaleIntensityd(keys=self.input_key, prob=augmentation_cfg.scaling_prob,
+            transforms.RandScaleIntensityd(keys="image", prob=augmentation_cfg.scaling_prob,
                                 factors=augmentation_cfg.scaling_fator),
-            RandAdjustContrastd(keys=self.input_key, prob=augmentation_cfg.gamma_prob,
+            transforms.RandAdjustContrastd(keys="image", prob=augmentation_cfg.gamma_prob,
                                 gamma=augmentation_cfg.gamma_range),
             ]
         
